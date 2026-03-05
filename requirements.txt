@@ -1,6 +1,1 @@
-# Dependências de runtime da app vão aqui
-# Exemplo (ajusta conforme o framework desktop que escolheres):
-# PySide6==6.8.0
-# ou
-# PyQt6==6.7.0
-
+# Não há dependências

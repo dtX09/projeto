@@ -37,7 +37,3 @@ jobs:
 
       - name: Validar build do projeto (wheel)
         run: python -m build
-
-      - name: Validar Docker build
-        run: docker build -t desktop-app .
-

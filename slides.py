@@ -109,17 +109,17 @@ class App(tk.Tk):
             self.logo_img = None
 
         try:
-            self.liner_src = Image.open("cargo-ship-sailing-through-ocean.jpg")
+            self.liner_src = Image.open("imgs/boat2.jpg")
         except Exception:
             self.liner_src = None
 
         try:
-            self.tramp_src = Image.open("ai-generated-boat-picture.jpg")
+            self.tramp_src = Image.open("imgs/boat1.jpg")
         except Exception:
             self.tramp_src = None
 
         try:
-            self.screen1_bg_src = Image.open("Gasc.png")
+            self.screen1_bg_src = Image.open("imgs/backg.png")
         except Exception:
             self.screen1_bg_src = None
 

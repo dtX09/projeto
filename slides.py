@@ -1,5 +1,12 @@
 import tkinter as tk
 from PIL import Image, ImageTk
+import ctypes
+
+# fix dpi no windows
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except Exception:
+    pass
 
 # ── colors ─────────────────────────────────────────────
 BG_DARK       = "#1a2332"
@@ -33,7 +40,7 @@ class App(tk.Tk):
         ("Plano de Estiva", "screen8"),
     ]
 
-    # screens that show sidebar
+    # screens com sidebar
     SIDEBAR_SCREENS = {"screen4", "screen5", "screen6", "screen7", "screen7b", "screen8", "screen9"}
 
     def __init__(self):
@@ -42,15 +49,29 @@ class App(tk.Tk):
         self.configure(bg=BG_DARK)
         self.resizable(True, True)
 
-        # app state
+        # escala base
+        try:
+            self.tk.call("tk", "scaling", 1.2)
+        except Exception:
+            pass
+
+        # state
         self.selected_ship = "HMM Algeciras"
         self.selected_route = tk.IntVar(value=2)
         self.cargo_var = tk.StringVar(value="Contentores (FCL)")
 
-        # route form values
+        # values da rota
         self.porto_carga_var = tk.StringVar(value="")
         self.porto_descarga_var = tk.StringVar(value="")
-        self.eta_var = tk.StringVar(value="11/20/2026")
+        self.eta_var = tk.StringVar(value="20/11/2026")
+
+        self.logo_img = None
+        self.screen1_bg = None
+
+        self.logo_src = None
+        self.liner_src = None
+        self.tramp_src = None
+        self.screen1_bg_src = None
 
         self.after(0, self._maximize_window)
 
@@ -59,7 +80,7 @@ class App(tk.Tk):
         self._build_shell()
         self.show_screen("screen1")
 
-    # window maximize
+    # maximizar janela
     def _maximize_window(self):
         try:
             self.state("zoomed")
@@ -67,9 +88,9 @@ class App(tk.Tk):
             try:
                 self.attributes("-zoomed", True)
             except Exception:
-                self.geometry("1400x900")
+                self.geometry("1200x800")
 
-    # fonts
+    # fontes
     def _define_fonts(self):
         self.f_title = ("Georgia", 14, "bold")
         self.f_heading = ("Georgia", 11, "bold")
@@ -78,38 +99,31 @@ class App(tk.Tk):
         self.f_btn = ("Helvetica", 9, "bold")
         self.f_sidebar = ("Helvetica", 8, "bold")
 
-    # load all images
+    # carregar imagens
     def _load_images(self):
         try:
-            logo = Image.open("ENIDH_ultra_horizontal_branco.png")
-            logo = logo.resize((320, 44), Image.LANCZOS)
+            self.logo_src = Image.open("ENIDH_ultra_horizontal_branco.png")
+            logo = self.logo_src.resize((320, 44), Image.LANCZOS)
             self.logo_img = ImageTk.PhotoImage(logo)
         except Exception:
             self.logo_img = None
 
         try:
-            liner = Image.open("cargo-ship-sailing-through-ocean.jpg")
-            liner = liner.resize((900, 720), Image.LANCZOS)
-            self.img_liner = ImageTk.PhotoImage(liner)
+            self.liner_src = Image.open("cargo-ship-sailing-through-ocean.jpg")
         except Exception:
-            self.img_liner = None
+            self.liner_src = None
 
         try:
-            tramp = Image.open("ai-generated-boat-picture.jpg")
-            tramp = tramp.resize((900, 720), Image.LANCZOS)
-            self.img_tramp = ImageTk.PhotoImage(tramp)
+            self.tramp_src = Image.open("ai-generated-boat-picture.jpg")
         except Exception:
-            self.img_tramp = None
+            self.tramp_src = None
 
-        # original bg image
         try:
             self.screen1_bg_src = Image.open("Gasc.png")
         except Exception:
             self.screen1_bg_src = None
 
-        self.screen1_bg = None
-
-    # main shell
+    # shell principal
     def _build_shell(self):
         # header
         self.header = tk.Frame(self, bg=HEADER_BG, height=60)
@@ -142,7 +156,7 @@ class App(tk.Tk):
             font=self.f_small
         ).pack(expand=True)
 
-    # header content
+    # header
     def _build_header(self, parent):
         logo_f = tk.Frame(parent, bg=HEADER_BG)
         logo_f.pack(side="left", padx=14, pady=8)
@@ -158,7 +172,7 @@ class App(tk.Tk):
                 font=("Georgia", 12, "bold")
             ).pack(side="left")
 
-    # sidebar build
+    # sidebar
     def _build_sidebar(self, active):
         for w in self.sidebar_frame.winfo_children():
             w.destroy()
@@ -173,9 +187,7 @@ class App(tk.Tk):
             row.pack(fill="x", pady=1, padx=4)
 
             if is_active:
-                tk.Label(
-                    row, text="▶", bg=bg, fg=TEXT_WHITE, font=("Helvetica", 8)
-                ).pack(side="left", padx=4)
+                tk.Label(row, text="▶", bg=bg, fg=TEXT_WHITE, font=("Helvetica", 8)).pack(side="left", padx=4)
 
             lbl = tk.Label(
                 row,
@@ -189,15 +201,22 @@ class App(tk.Tk):
             )
             lbl.pack(side="left", fill="x", expand=True)
 
+            def on_enter(r=row, l=lbl, a=is_active):
+                color = SIDEBAR_ACT if a else BTN_HOVER
+                r.config(bg=color)
+                l.config(bg=color)
+
+            def on_leave(r=row, l=lbl, a=is_active):
+                color = SIDEBAR_ACT if a else SIDEBAR_BG
+                r.config(bg=color)
+                l.config(bg=color)
+
             for widget in (row, lbl):
                 widget.bind("<Button-1>", lambda e, t=target: self.show_screen(t))
-                widget.bind(
-                    "<Enter>",
-                    lambda e, r=row, a=is_active: r.config(bg=BTN_HOVER if not a else SIDEBAR_ACT)
-                )
-                widget.bind("<Leave>", lambda e, r=row, b=bg: r.config(bg=b))
+                widget.bind("<Enter>", lambda e, fn=on_enter: fn())
+                widget.bind("<Leave>", lambda e, fn=on_leave: fn())
 
-    # screen router
+    # router
     def show_screen(self, name):
         for w in self.content.winfo_children():
             w.destroy()
@@ -211,8 +230,17 @@ class App(tk.Tk):
 
         getattr(self, f"_show_{name}")(self.content)
 
+    # resize normal
+    def _resize_image(self, pil_img, max_w, max_h):
+        if pil_img is None:
+            return None
+
+        img = pil_img.copy()
+        img.thumbnail((max_w, max_h), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+
     # ────────────────────────────────────────────────────
-    # SCREEN 1 - welcome / profile
+    # TELA 1 - boas vindas / perfil
     # ────────────────────────────────────────────────────
     def _show_screen1(self, parent):
         canvas = tk.Canvas(parent, highlightthickness=0, bg=BG_DARK)
@@ -220,10 +248,8 @@ class App(tk.Tk):
 
         bg_id = None
 
-        # resize bg image with window
         def redraw_bg(event=None):
             nonlocal bg_id
-
             w = max(1, canvas.winfo_width())
             h = max(1, canvas.winfo_height())
 
@@ -241,7 +267,6 @@ class App(tk.Tk):
 
             canvas.coords("centerbox", w // 2, h // 2)
 
-        # center box
         box = tk.Frame(
             canvas,
             bg=BG_PANEL,
@@ -278,9 +303,8 @@ class App(tk.Tk):
         redraw_bg()
 
     # ────────────────────────────────────────────────────
-    # SCREEN 2 - teacher options
+    # TELA 2 - opções docente
     # ────────────────────────────────────────────────────
-    # SCREEN 2 - teacher options
     def _show_screen2(self, parent):
         f = tk.Frame(parent, bg=BG_DARK)
         f.pack(fill="both", expand=True, padx=20, pady=16)
@@ -296,37 +320,18 @@ class App(tk.Tk):
         btn_frame = tk.Frame(f, bg=BG_DARK)
         btn_frame.pack()
 
-        self._btn(
-            btn_frame,
-            "Retomar plano de estiva",
-            lambda: self.show_screen("screen3"),
-            w=220
-        ).pack(pady=2)
-
+        self._btn(btn_frame, "Retomar plano de estiva", lambda: self.show_screen("screen3"), w=220).pack(pady=2)
         tk.Frame(btn_frame, bg=BG_DARK, height=8).pack()
+        self._btn(btn_frame, "Criar novo plano de estiva", lambda: self.show_screen("screen3"), w=220).pack(pady=2)
 
-        self._btn(
-            btn_frame,
-            "Criar novo plano de estiva",
-            lambda: self.show_screen("screen3"),
-            w=220
-        ).pack(pady=2)
-
-        # nav row igual aos outros ecrãs
         nav = tk.Frame(f, bg=BG_DARK)
         nav.pack(fill="x", side="bottom", pady=(8, 0))
 
-        self._btn(
-            nav,
-            "Voltar",
-            lambda: self.show_screen("screen1"),
-            w=100,
-            secondary=True
-        ).pack(side="left", pady=2)
-    # ────────────────────────────────────────────────────
-    # SCREEN 3 - planning method
-    # ────────────────────────────────────────────────────
+        self._btn(nav, "Voltar", lambda: self.show_screen("screen1"), w=100, secondary=True).pack(side="left", pady=2)
 
+    # ────────────────────────────────────────────────────
+    # TELA 3 - tipo de planeamento
+    # ────────────────────────────────────────────────────
     def _show_screen3(self, parent):
         f = tk.Frame(parent, bg=BG_DARK)
         f.pack(fill="both", expand=True, padx=20, pady=16)
@@ -336,6 +341,7 @@ class App(tk.Tk):
 
         cards.columnconfigure(0, weight=1)
         cards.columnconfigure(1, weight=1)
+        cards.rowconfigure(0, weight=1)
 
         self._ship_card(
             cards,
@@ -343,7 +349,7 @@ class App(tk.Tk):
             title="Rota definida (liner)",
             desc="A estiva é organizada com base numa rota fixa entre portos. Ideal para operações regulares de contentores e logística de linha.",
             on_select=lambda: self.show_screen("screen4"),
-            img=self.img_liner
+            img_src=self.liner_src
         )
 
         self._ship_card(
@@ -352,10 +358,9 @@ class App(tk.Tk):
             title="Carga definida (tramp)",
             desc="O planeamento da viagem é feito com base na carga disponível. Focado em granéis, fretamento spot e rotas variáveis conforme a demanda.",
             on_select=None,
-            img=self.img_tramp
+            img_src=self.tramp_src
         )
 
-        # nav row igual aos outros ecrãs
         nav = tk.Frame(f, bg=BG_DARK)
         nav.pack(fill="x", pady=(8, 0))
 
@@ -367,8 +372,8 @@ class App(tk.Tk):
             w=100
         ).pack(side="left", pady=2)
 
-    # screen 3 card
-    def _ship_card(self, parent, col, title, desc, on_select, img=None):
+    # card da tela 3
+    def _ship_card(self, parent, col, title, desc, on_select, img_src=None):
         card = tk.Frame(
             parent,
             bg=BG_CARD,
@@ -382,21 +387,41 @@ class App(tk.Tk):
         img_frame = tk.Frame(
             card,
             bg="#1a3050",
-            width=900,
-            height=690,
+            height=420,
             highlightbackground=ACCENT,
             highlightthickness=2
         )
-        img_frame.pack(pady=(0, 12))
+        img_frame.pack(fill="x", pady=(0, 12))
         img_frame.pack_propagate(False)
 
-        if img:
-            tk.Label(img_frame, image=img, bg="#1a3050").pack(expand=True)
+        if img_src:
+            lbl = tk.Label(img_frame, bg="#1a3050", bd=0, highlightthickness=0)
+            lbl.pack(fill="both", expand=True)
+
+            def update_card_image(event=None, frame=img_frame, label=lbl, src=img_src):
+                w = max(1, frame.winfo_width() - 4)
+                h = max(1, frame.winfo_height() - 4)
+
+                img = src.copy()
+                img.thumbnail((w, h), Image.LANCZOS)
+
+                photo = ImageTk.PhotoImage(img)
+                label.config(image=photo)
+                label.image = photo
+
+            img_frame.bind("<Configure>", update_card_image)
+            update_card_image()
         else:
-            tk.Label(img_frame, text="🚢", bg="#1a3050", fg=ACCENT, font=("Helvetica", 40)).pack(expand=True)
+            tk.Label(
+                img_frame,
+                text="🚢",
+                bg="#1a3050",
+                fg=ACCENT,
+                font=("Helvetica", 40)
+            ).pack(expand=True)
 
         tk.Label(card, text=title, bg=BG_CARD, fg=TEXT_WHITE, font=self.f_heading).pack()
-        tk.Label(card, text=desc, bg=BG_CARD, fg=TEXT_MUTED, font=self.f_small, wraplength=200, justify="center").pack(pady=(6, 12))
+        tk.Label(card, text=desc, bg=BG_CARD, fg=TEXT_MUTED, font=self.f_small, wraplength=280, justify="center").pack(pady=(6, 12))
 
         if on_select:
             self._btn(card, "Selecionar  ➜", on_select, w=150).pack(pady=2)
@@ -404,7 +429,7 @@ class App(tk.Tk):
             self._btn(card, "Selecionar  ➜", lambda: None, w=150, secondary=True).pack(pady=2)
 
     # ────────────────────────────────────────────────────
-    # SCREEN 4 - cargo data
+    # TELA 4 - dados da carga
     # ────────────────────────────────────────────────────
     def _show_screen4(self, parent):
         f = self._panel(parent, "Dados da Carga")
@@ -448,7 +473,7 @@ class App(tk.Tk):
         self._nav_row(f, back="screen3", next_="screen5")
 
     # ────────────────────────────────────────────────────
-    # SCREEN 5 - route operation data
+    # TELA 5 - configuração da rota
     # ────────────────────────────────────────────────────
     def _show_screen5(self, parent):
         f = self._panel(parent, "Configuração de Rota de Carga")
@@ -492,7 +517,7 @@ class App(tk.Tk):
 
         self._nav_row(f, back="screen4", next_="screen6")
 
-    # small map
+    # mini mapa
     def _draw_mini_map(self, parent):
         canvas = tk.Canvas(parent, bg="#071525", highlightthickness=0)
         canvas.pack(fill="both", expand=True, padx=4, pady=4)
@@ -515,7 +540,7 @@ class App(tk.Tk):
         canvas.bind("<Configure>", draw)
 
     # ────────────────────────────────────────────────────
-    # SCREEN 6 - route options
+    # TELA 6 - opções de rota
     # ────────────────────────────────────────────────────
     def _show_screen6(self, parent):
         f = self._panel(parent, "Opções de Rota")
@@ -557,13 +582,13 @@ class App(tk.Tk):
 
         self._nav_row(f, back="screen5", next_="screen7")
 
-    # select route
+    # selecionar rota
     def _select_route(self, idx):
         self.selected_route.set(idx)
         self.show_screen("screen6")
 
     # ────────────────────────────────────────────────────
-    # SCREEN 7 - ship list
+    # TELA 7 - lista de navios
     # ────────────────────────────────────────────────────
     def _show_screen7(self, parent):
         f = self._panel(parent, "Navio Compatível")
@@ -597,17 +622,17 @@ class App(tk.Tk):
 
             tk.Label(info, text=name, bg=BG_CARD, fg=TEXT_MUTED, font=self.f_small, wraplength=110, justify="center").pack()
 
-            self._btn(col, "selecionar", lambda n=name: self._select_ship(n), w=110).pack(pady=2)
+            self._btn(col, "Selecionar", lambda n=name: self._select_ship(n), w=110).pack(pady=2)
 
         self._nav_row(f, back="screen6", next_="screen8")
 
-    # select ship
+    # selecionar navio
     def _select_ship(self, name):
         self.selected_ship = name
         self.show_screen("screen7b")
 
     # ────────────────────────────────────────────────────
-    # SCREEN 7B - ship details
+    # TELA 7B - detalhe do navio
     # ────────────────────────────────────────────────────
     def _show_screen7b(self, parent):
         self.sidebar_frame.pack(side="right", fill="y")
@@ -658,7 +683,7 @@ class App(tk.Tk):
         self._nav_row(f, back="screen7", next_="screen8")
 
     # ────────────────────────────────────────────────────
-    # SCREEN 8 - stowage plan summary
+    # TELA 8 - resumo do plano
     # ────────────────────────────────────────────────────
     def _show_screen8(self, parent):
         f = self._panel(parent, "Plano de Estiva")
@@ -672,7 +697,8 @@ class App(tk.Tk):
         tk.Label(left, text="Resumo do Plano", bg=BG_CARD, fg=TEXT_WHITE, font=self.f_heading).pack(anchor="nw")
 
         route_names = ["Rota A – 3.200 nm", "Rota B – 3.900 nm", "Rota C – 2.800 nm"]
-        route_text = route_names[self.selected_route.get()]
+        idx = self.selected_route.get()
+        route_text = route_names[idx] if 0 <= idx < len(route_names) else route_names[0]
 
         info_items = [
             ("Tipo de Rota", "Rota definida (liner)"),
@@ -717,7 +743,7 @@ class App(tk.Tk):
         self._btn(nav, "Voltar", lambda: self.show_screen("screen7"), secondary=True, w=100).pack(side="left", pady=2)
         self._btn(nav, "Finalizar  ✔", self._finalizar, w=140).pack(side="right", pady=2)
 
-    # bay view draw
+    # desenho da baía
     def _draw_bay_view(self, parent):
         canvas = tk.Canvas(parent, bg="#0d1a28", highlightthickness=0, height=160)
         canvas.pack(fill="x", padx=6, pady=6)
@@ -732,7 +758,7 @@ class App(tk.Tk):
             canvas.create_text(w // 2, 10, text="Secção Transversal: Baía 10", fill=TEXT_WHITE, font=self.f_small)
 
             cols, rows_n = 9, 5
-            cw, ch = min(24, (w - 40) // cols), 20
+            cw, ch = min(24, max(12, (w - 40) // cols)), 20
             ox = (w - cols * cw) // 2
             oy = 25
 
@@ -749,7 +775,7 @@ class App(tk.Tk):
 
         canvas.bind("<Configure>", draw)
 
-    # finalize popup
+    # popup finalizar
     def _finalizar(self):
         win = tk.Toplevel(self)
         win.title("Concluído")
@@ -770,7 +796,7 @@ class App(tk.Tk):
         self._btn(win, "OK", win.destroy, w=80).pack(pady=12)
 
     # ────────────────────────────────────────────────────
-    # SCREEN 9 - stowage plan editing
+    # TELA 9 - edição do plano
     # ────────────────────────────────────────────────────
     def _show_screen9(self, parent):
         f = self._panel(parent, "Plano de Estiva – Edição")
@@ -797,7 +823,7 @@ class App(tk.Tk):
         mid = tk.Frame(body, bg=BG_CARD, padx=6, pady=6, highlightbackground=BORDER, highlightthickness=1)
         mid.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
-        tk.Label(mid, text="Visualização da Navio", bg=BG_CARD, fg=TEXT_MUTED, font=self.f_small).pack()
+        tk.Label(mid, text="Visualização do Navio", bg=BG_CARD, fg=TEXT_MUTED, font=self.f_small).pack()
         self._draw_ship_topview(mid)
 
         info = tk.Frame(body, bg=BG_PANEL, width=180)
@@ -809,7 +835,7 @@ class App(tk.Tk):
 
         tk.Label(
             cargo_box,
-            text="Que carga . Onde esta para onde vai",
+            text="Que carga é, onde está e para onde vai",
             bg=BG_CARD,
             fg=TEXT_MUTED,
             font=self.f_small,
@@ -845,7 +871,7 @@ class App(tk.Tk):
         self._btn(nav, "Voltar", lambda: self.show_screen("screen8"), secondary=True, w=100).pack(side="left", pady=2)
         self._btn(nav, "Finalizar  ✔", self._finalizar, w=140).pack(side="right", pady=2)
 
-    # ship top view draw
+    # topo do navio
     def _draw_ship_topview(self, parent):
         canvas = tk.Canvas(parent, bg="#071525", highlightthickness=0)
         canvas.pack(fill="both", expand=True, pady=4)
@@ -858,7 +884,7 @@ class App(tk.Tk):
                 return
 
             bays = 10
-            bw = max(1, (w - 20) // bays)
+            bw = max(18, (w - 20) // bays)
             oh = 8
 
             colors_row = [
@@ -893,7 +919,7 @@ class App(tk.Tk):
 
         canvas.bind("<Configure>", draw)
 
-    # common panel
+    # panel comum
     def _panel(self, parent, title):
         outer = tk.Frame(parent, bg=BG_DARK, padx=14, pady=12)
         outer.pack(fill="both", expand=True)
@@ -904,7 +930,7 @@ class App(tk.Tk):
         tk.Label(f, text=title, bg=BG_PANEL, fg=TEXT_WHITE, font=self.f_title).pack(anchor="w", pady=(0, 4))
         return f
 
-    # common nav buttons
+    # linha de navegação
     def _nav_row(self, parent, back, next_):
         nav = tk.Frame(parent, bg=BG_PANEL)
         nav.pack(fill="x", pady=(8, 0))
@@ -912,7 +938,7 @@ class App(tk.Tk):
         self._btn(nav, "Voltar", lambda: self.show_screen(back), secondary=True, w=100).pack(side="left", pady=2)
         self._btn(nav, "Próximo  ➜", lambda: self.show_screen(next_), w=130).pack(side="right", pady=2)
 
-    # custom button
+    # botão custom
     def _btn(self, parent, text, command, w=160, secondary=False):
         bg = BTN_SECONDARY if secondary else BTN_PRIMARY
         hov = BTN_SEC_HOV if secondary else BTN_HOVER

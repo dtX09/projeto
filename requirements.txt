@@ -1,1 +1,2 @@
-# Não há dependências
+mysql-connector-python>=9.0.0
+Pillow>=10.0.0

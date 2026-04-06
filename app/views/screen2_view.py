@@ -31,7 +31,10 @@ def mount_screen2(
         except Exception as e:
             load_err = str(e)
 
-    canvas = tk.Canvas(parent, highlightthickness=0, bg=BG_DARK)
+    f = tk.Frame(parent, bg=BG_DARK)
+    f.pack(fill="both", expand=True, padx=20, pady=16)
+
+    canvas = tk.Canvas(f, highlightthickness=0, bg=BG_DARK)
     canvas.pack(fill="both", expand=True)
 
     bg_id = None
@@ -112,10 +115,10 @@ def mount_screen2(
     tk.Frame(btn_frame, bg=BG_PANEL, height=8).pack()
     themed_btn(btn_frame, "Criar novo plano de estiva", lambda: navigate("screen3"), w=220).pack(pady=2)
 
-    nav_inner = tk.Frame(box, bg=BG_PANEL)
-    nav_inner.pack(fill="x", pady=(20, 0))
+    nav = tk.Frame(f, bg=BG_DARK)
+    nav.pack(fill="x", pady=(8, 0))
 
-    themed_btn(nav_inner, "Voltar", lambda: navigate("screen1"), w=100, secondary=True).pack(side="left", pady=2)
+    themed_btn(nav, "Voltar", lambda: navigate("screen1"), secondary=True, w=100).pack(side="left", pady=2)
 
     canvas.bind("<Configure>", redraw_bg)
     redraw_bg()

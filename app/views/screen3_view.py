@@ -99,6 +99,7 @@ def mount_screen3(
     parent: tk.Widget,
     model: SimulatorModel,
     navigate: Callable[[str], None],
+    go_back: Callable[[], None] | None = None,
 ) -> None:
     f = tk.Frame(parent, bg=BG_DARK)
     f.pack(fill="both", expand=True, padx=20, pady=16)
@@ -131,4 +132,5 @@ def mount_screen3(
     nav = tk.Frame(f, bg=BG_DARK)
     nav.pack(fill="x", pady=(8, 0))
 
-    themed_btn(nav, "Voltar", lambda: navigate("screen1"), secondary=True, w=100).pack(side="left", pady=2)
+    back_action = go_back if go_back is not None else (lambda: navigate("screen1"))
+    themed_btn(nav, "Voltar", back_action, secondary=True, w=100).pack(side="left", pady=2)

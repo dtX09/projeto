@@ -19,6 +19,8 @@ class MainController:
         self._root = root
         self._model = model
         self._dashboard = DashboardView(model, self.go)
+        self._current_screen: str | None = None
+        self._screen3_back_target = "screen1"
 
         self._build_shell()
         self.go("screen1")
@@ -68,6 +70,11 @@ class MainController:
             ).pack(side="left")
 
     def go(self, screen: str) -> None:
+        previous_screen = self._current_screen
+        if screen == "screen3":
+            if previous_screen in {"screen1", "screen2"}:
+                self._screen3_back_target = previous_screen
+
         for w in self._content.winfo_children():
             w.destroy()
 
@@ -83,6 +90,13 @@ class MainController:
         elif screen == "screen2":
             mount_screen2(self._content, self._model, self.go)
         elif screen == "screen3":
-            mount_screen3(self._content, self._model, self.go)
+            mount_screen3(
+                self._content,
+                self._model,
+                self.go,
+                go_back=lambda: self.go(self._screen3_back_target),
+            )
         elif screen in _SIDEBAR_SCREENS:
             self._dashboard.render(self._content, screen)
+
+        self._current_screen = screen

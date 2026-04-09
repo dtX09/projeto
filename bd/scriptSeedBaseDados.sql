@@ -13,14 +13,17 @@ INSERT INTO weather_condition (id, name) VALUES
     (1, 'Mar moderado'),
     (2, 'Bonança');
 
-INSERT INTO route (id, name, distance_nm) VALUES
-    (1, 'Rotterdam — Leixões', 950.00),
-    (2, 'Sines — Rotterdam', 1100.00);
+INSERT INTO route (id, name, distance_nm, frequency_days) VALUES
+    (1, 'Rotterdam — Leixões', 950.00, 15),
+    (2, 'Sines — Rotterdam', 1100.00, 7),
+    (3, 'Rotterdam — Sines', 2650.00, 21);
 
 INSERT INTO port (id, name, country, latitude, longitude, max_draft, max_ship_length, tidal_restrictions, description) VALUES
     (1, 'Rotterdam', 'Países Baixos', 51.9225000, 4.4791700, 20.00, 400.00, 1, 'Porto de teste — origem'),
     (2, 'Leixões', 'Portugal', 41.1833333, -8.7000000, 16.00, 350.00, 0, 'Porto de teste — destino'),
-    (3, 'Sines', 'Portugal', 37.9500000, -8.8666667, 21.00, 400.00, 0, 'Terminal de líquidos — exemplo tanqueiro');
+    (3, 'Sines', 'Portugal', 37.9500000, -8.8666667, 21.00, 400.00, 0, 'Terminal de líquidos — exemplo tanqueiro'),
+    (4, 'Hamburgo', 'Alemanha', 53.5419444, 9.9961111, 16.50, 400.00, 0, 'Hub Norte da Europa — exemplo rota multi-porto'),
+    (5, 'Antuérpia', 'Bélgica', 51.2300000, 4.4000000, 17.50, 430.00, 0, 'Maior porto de contentores da Europa — exemplo rota multi-porto');
 
 /* ---------- Navio 1: porta-contentores (só contentores na condição de teste) ---------- */
 INSERT INTO ship (
@@ -71,7 +74,8 @@ INSERT INTO container_slot (id, id_ship, bay, row, tier, max_weight, slot_lcg, s
     (3, 1, 14, 1, 2, 32.00, 22.0000, 12.1000, 0.0000);
 
 INSERT INTO sailing (id, id_ship, id_route, id_weather_condition, fuel_price_per_ton, estimated_arrival_time) VALUES
-    (1, 1, 1, 1, 685.00, '2026-05-15 08:00:00');
+    (1, 1, 1, 1, 685.00, '2026-05-15 08:00:00'),
+    (3, 1, 3, 1, 688.00, '2026-07-22 14:00:00');
 
 INSERT INTO cargo_shipment (id, id_sailing, id_discharge_port, cargo_name, weight, volume, priority, imdg_class, temperature_required, need_container) VALUES
     (1, 1, 2, 'Peças automóveis', 22.50, 68.00, 1, 'N/A', NULL, 1),
@@ -153,12 +157,19 @@ INSERT INTO route_port (id_route, id_port, port_order) VALUES
     (1, 1, 1),
     (1, 2, 2),
     (2, 3, 1),
-    (2, 1, 2);
+    (2, 1, 2),
+    (3, 1, 1),
+    (3, 4, 2),
+    (3, 5, 3),
+    (3, 2, 4),
+    (3, 3, 5);
 
 INSERT INTO port_fees (id_port, name, price) VALUES
     (1, 'Taxa atracação', 12500.00),
     (2, 'Taxa atracação', 9800.00),
-    (3, 'Taxa terminal líquidos', 15200.00);
+    (3, 'Taxa terminal líquidos', 15200.00),
+    (4, 'Taxa atracação', 14200.00),
+    (5, 'Taxa atracação', 16800.00);
 
 INSERT INTO exercise_plan (id, name, description) VALUES
     (1, 'Plano A — Distribuição de contentores', 'Exercício pedagógico: equilibrar peso por baía (sem ligar a sailings).');

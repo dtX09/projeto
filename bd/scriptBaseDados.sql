@@ -22,7 +22,8 @@ CREATE TABLE weather_condition (
 CREATE TABLE route (
     id BIGINT AUTO_INCREMENT PRIMARY KEY NOT NULL,
     name VARCHAR(80) NOT NULL,
-    distance_nm DECIMAL(10,2) NOT NULL
+    distance_nm DECIMAL(10,2) NOT NULL,
+    frequency_days INT NOT NULL
 ) ;
 
 CREATE TABLE port (

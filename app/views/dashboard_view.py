@@ -4,8 +4,11 @@ Dashboard do simulador: barra lateral + ecrãs 4–9 (fluxo liner).
 
 from __future__ import annotations
 
+import calendar
 import tkinter as tk
+from tkinter import messagebox, ttk
 from collections.abc import Callable, Sequence
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from app.db.route_repository import RouteRow
@@ -47,6 +50,209 @@ _SIDEBAR_ITEMS = [
     ("Dados Navios", "screen7"),
     ("Plano de Estiva", "screen8"),
 ]
+
+
+class DatePickerPopup(tk.Toplevel):
+    """Popup para selecionar uma data."""
+
+    def __init__(self, parent: tk.Misc, title: str = "Selecionar Data", initial_date: date | None = None) -> None:
+        super().__init__(parent)
+        self.parent = parent
+        self.result: date | None = None
+
+        ref = initial_date if initial_date else date.today()
+        self._year = ref.year
+        self._month = ref.month
+        self._sel = ref
+        self._today = date.today()
+
+        self.title(title)
+        self.configure(bg=BG_DARK)
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        self._build_ui()
+        self._render_calendar()
+        self._center()
+
+    def _build_ui(self) -> None:
+        header = tk.Frame(self, bg=BG_DARK, pady=12)
+        header.pack(fill="x", padx=18)
+        tk.Label(header, text="Escolher Data", font=F_HEADING, fg=TEXT_WHITE, bg=BG_DARK).pack()
+
+        nav = tk.Frame(self, bg=BG_CARD, pady=6)
+        nav.pack(fill="x", padx=14, pady=(0, 6))
+
+        btn_cfg = dict(
+            bg=BG_CARD,
+            fg=TEXT_WHITE,
+            relief="flat",
+            font=("Consolas", 12, "bold"),
+            activebackground=BTN_HOVER,
+            activeforeground=ACCENT,
+            cursor="hand2",
+            bd=0,
+        )
+        tk.Button(nav, text="◀", command=self._prev_month, **btn_cfg).pack(side="left", padx=8)
+        self._nav_label = tk.Label(nav, text="", font=F_HEADING, fg=TEXT_WHITE, bg=BG_CARD, width=18)
+        self._nav_label.pack(side="left", expand=True)
+        tk.Button(nav, text="▶", command=self._next_month, **btn_cfg).pack(side="right", padx=8)
+
+        cal_frame = tk.Frame(self, bg=BG_DARK)
+        cal_frame.pack(padx=16, pady=2)
+
+        days_pt = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"]
+        for col, day_name in enumerate(days_pt):
+            color = ORANGE if col >= 5 else TEXT_MUTED
+            tk.Label(cal_frame, text=day_name, font=F_SMALL, fg=color, bg=BG_DARK, width=4, pady=3).grid(row=0, column=col)
+
+        self._day_btns: list[tk.Button] = []
+        for row in range(1, 7):
+            for col in range(7):
+                btn = tk.Button(
+                    cal_frame,
+                    text="",
+                    width=4,
+                    height=1,
+                    relief="flat",
+                    bd=0,
+                    cursor="hand2",
+                    font=F_SMALL,
+                )
+                btn.grid(row=row, column=col, padx=2, pady=2)
+                self._day_btns.append(btn)
+
+        footer = tk.Frame(self, bg=BG_DARK, pady=10)
+        footer.pack(fill="x", padx=18)
+        self._result_label = tk.Label(footer, text="Nenhuma data selecionada", font=F_SMALL, fg=TEXT_MUTED, bg=BG_DARK)
+        self._result_label.pack(pady=(0, 8))
+
+        btn_row = tk.Frame(footer, bg=BG_DARK)
+        btn_row.pack()
+        tk.Button(
+            btn_row,
+            text="Cancelar",
+            font=F_SMALL,
+            fg=TEXT_MUTED,
+            bg=BG_CARD,
+            activebackground=BTN_HOVER,
+            activeforeground=TEXT_WHITE,
+            relief="flat",
+            bd=0,
+            padx=16,
+            pady=6,
+            cursor="hand2",
+            command=self.destroy,
+        ).pack(side="left", padx=6)
+        tk.Button(
+            btn_row,
+            text="Confirmar",
+            font=F_SMALL,
+            fg=TEXT_WHITE,
+            bg=BTN_PRIMARY,
+            activebackground=ACCENT,
+            activeforeground=TEXT_WHITE,
+            relief="flat",
+            bd=0,
+            padx=16,
+            pady=6,
+            cursor="hand2",
+            command=self._confirm,
+        ).pack(side="left", padx=6)
+
+    def _render_calendar(self) -> None:
+        months_pt = [
+            "Janeiro",
+            "Fevereiro",
+            "Marco",
+            "Abril",
+            "Maio",
+            "Junho",
+            "Julho",
+            "Agosto",
+            "Setembro",
+            "Outubro",
+            "Novembro",
+            "Dezembro",
+        ]
+        self._nav_label.config(text=f"{months_pt[self._month - 1]} {self._year}")
+
+        cal = calendar.monthcalendar(self._year, self._month)
+        flat: list[int] = []
+        for week in cal:
+            flat.extend(week)
+        while len(flat) < 42:
+            flat.append(0)
+
+        for i, btn in enumerate(self._day_btns):
+            day = flat[i]
+            col = i % 7
+            if day == 0:
+                btn.config(text="", state="disabled", bg=BG_DARK, fg=BG_DARK, disabledforeground=BG_DARK, command=lambda: None)
+                continue
+
+            current_date = date(self._year, self._month, day)
+            is_today = current_date == self._today
+            is_selected = current_date == self._sel
+            is_wknd = col >= 5
+
+            if is_selected:
+                fg_c, bg_c = BG_DARK, ACCENT
+            elif is_today:
+                fg_c, bg_c = TEXT_WHITE, BTN_PRIMARY
+            elif is_wknd:
+                fg_c, bg_c = ORANGE, BG_DARK
+            else:
+                fg_c, bg_c = TEXT_WHITE, BG_DARK
+
+            btn.config(
+                text=str(day),
+                state="normal",
+                fg=fg_c,
+                bg=bg_c,
+                activebackground=BTN_HOVER,
+                activeforeground=TEXT_WHITE,
+                disabledforeground=TEXT_MUTED,
+                command=lambda d=current_date: self._select_day(d),
+            )
+            btn.bind("<Enter>", lambda _e, b=btn, d=current_date: b.config(bg=BTN_HOVER) if d != self._sel else None)
+            btn.bind("<Leave>", lambda _e, b=btn, bg=bg_c, d=current_date: b.config(bg=bg if d != self._sel else ACCENT))
+
+    def _select_day(self, picked_date: date) -> None:
+        self._sel = picked_date
+        weekday_names = ["Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado", "Domingo"]
+        self._result_label.config(
+            text=f"{picked_date.strftime('%d/%m/%Y')} - {weekday_names[picked_date.weekday()]}",
+            fg=ACCENT,
+        )
+        self._render_calendar()
+
+    def _prev_month(self) -> None:
+        if self._month == 1:
+            self._month, self._year = 12, self._year - 1
+        else:
+            self._month -= 1
+        self._render_calendar()
+
+    def _next_month(self) -> None:
+        if self._month == 12:
+            self._month, self._year = 1, self._year + 1
+        else:
+            self._month += 1
+        self._render_calendar()
+
+    def _confirm(self) -> None:
+        self.result = self._sel
+        self.destroy()
+
+    def _center(self) -> None:
+        self.update_idletasks()
+        pw = self.parent.winfo_rootx() + self.parent.winfo_width() // 2
+        ph = self.parent.winfo_rooty() + self.parent.winfo_height() // 2
+        w = self.winfo_width()
+        h = self.winfo_height()
+        self.geometry(f"+{pw - w // 2}+{ph - h // 2}")
 
 
 class DashboardView:
@@ -95,7 +301,7 @@ class DashboardView:
                 l.config(bg=color)
 
             for widget in (row, lbl):
-                widget.bind("<Button-1>", lambda e, t=target: self._navigate(t))
+                widget.bind("<Button-1>", lambda e, t=target: self._navigate_from_sidebar(t))
                 widget.bind("<Enter>", lambda e, fn=on_enter: fn())
                 widget.bind("<Leave>", lambda e, fn=on_leave: fn())
 
@@ -104,6 +310,102 @@ class DashboardView:
         if fn is None:
             return
         fn(parent)
+
+    def _warn_missing_fields(self, title: str, missing_fields: list[str]) -> None:
+        msg = "Preencha os campos obrigatórios antes de avançar:\n- " + "\n- ".join(missing_fields)
+        messagebox.showwarning(title, msg)
+
+    def _missing_screen4_fields(self) -> list[str]:
+        missing: list[str] = []
+        if not self._model.cargo_var.get().strip():
+            missing.append("Tipo de carga")
+        return missing
+
+    def _missing_screen5_fields(self) -> list[str]:
+        missing: list[str] = []
+        if not self._model.porto_carga_var.get().strip():
+            missing.append("Porto de carga")
+        if not self._model.porto_descarga_var.get().strip():
+            missing.append("Porto de descarga")
+        if not self._model.eta_var.get().strip():
+            missing.append("Prazo para entrega (ETA)")
+        if not self._model.estado_clima_var.get().strip():
+            missing.append("Estádo do clima")
+        if not self._model.custo_combustivel_litro_var.get().strip():
+            missing.append("Custo de combustivel por Litro")
+        return missing
+
+    def _missing_screen6_fields(self) -> list[str]:
+        filtered_routes = self._model.filtered_routes_for_selected_ports()
+        selected_id = self._model.selected_route_id.get()
+        if not filtered_routes:
+            return ["Selecione uma combinação válida de rota"]
+        if selected_id not in {r.id for r in filtered_routes}:
+            return ["Selecione uma rota"]
+        return []
+
+    def _missing_screen7_fields(self) -> list[str]:
+        if not self._model.get_selected_ship():
+            return ["Selecione um navio"]
+        return []
+
+    def _navigate_from_sidebar(self, target: str) -> None:
+        # Bloqueia acesso pela sidebar até cumprir requisitos dos ecrãs anteriores.
+        if target in {"screen5", "screen6", "screen7", "screen7b", "screen8", "screen9"}:
+            missing = self._missing_screen4_fields()
+            if missing:
+                self._warn_missing_fields("Screen 4", missing)
+                return
+        if target in {"screen6", "screen7", "screen7b", "screen8", "screen9"}:
+            missing = self._missing_screen5_fields()
+            if missing:
+                self._warn_missing_fields("Screen 5", missing)
+                return
+        if target in {"screen7", "screen7b", "screen8", "screen9"}:
+            missing = self._missing_screen6_fields()
+            if missing:
+                self._warn_missing_fields("Screen 6", missing)
+                return
+        if target in {"screen7b", "screen8", "screen9"}:
+            missing = self._missing_screen7_fields()
+            if missing:
+                self._warn_missing_fields("Screen 7", missing)
+                return
+        self._navigate(target)
+
+    def _go_next_from_screen4(self) -> None:
+        missing = self._missing_screen4_fields()
+        if missing:
+            self._warn_missing_fields("Screen 4", missing)
+            return
+        self._navigate("screen5")
+
+    def _go_next_from_screen5(self) -> None:
+        missing = self._missing_screen5_fields()
+        if missing:
+            self._warn_missing_fields("Screen 5", missing)
+            return
+        self._navigate("screen6")
+
+    def _go_next_from_screen6(self) -> None:
+        missing = self._missing_screen6_fields()
+        if missing:
+            self._warn_missing_fields("Screen 6", missing)
+            return
+        self._navigate("screen7")
+
+    def _go_next_from_screen7(self) -> None:
+        missing = self._missing_screen7_fields()
+        if missing:
+            self._warn_missing_fields("Screen 7", missing)
+            return
+        self._navigate("screen7b")
+
+    def _go_next_from_screen7b(self) -> None:
+        if not self._model.get_selected_ship():
+            self._warn_missing_fields("Screen 7B", ["Selecione/Confirme um navio"])
+            return
+        self._navigate("screen8")
 
     def _screen_screen4(self, parent: tk.Widget) -> None:
         f = themed_panel(parent, "Dados da Carga")
@@ -144,7 +446,7 @@ class DashboardView:
 
         tk.Label(right, text="Mais dados sobre a carga", bg=BG_CARD, fg=TEXT_MUTED, font=F_BODY).pack(expand=True)
 
-        nav_row(f, "screen3", "screen5", self._navigate)
+        nav_row(f, "screen3", self._go_next_from_screen4, self._navigate)
 
     def _screen_screen5(self, parent: tk.Widget) -> None:
         f = themed_panel(parent, "Configuração de Rota de Carga")
@@ -155,32 +457,124 @@ class DashboardView:
         fields_frame = tk.Frame(body, bg=BG_PANEL)
         fields_frame.pack(fill="both", expand=True)
 
-        fields = [
-            ("Porto de carga", self._model.porto_carga_var),
-            ("Porto de descarga", self._model.porto_descarga_var),
-            ("Prazo para entrega (ETA)", self._model.eta_var),
-        ]
+        port_names = [p.name for p in self._model.ports_catalog]
 
-        for label, var in fields:
+        def _make_group(label: str) -> tk.Frame:
             grp = tk.Frame(fields_frame, bg=BG_PANEL)
             grp.pack(fill="x", pady=6)
-
             tk.Label(grp, text=label, bg=BG_PANEL, fg=TEXT_WHITE, font=F_HEADING).pack(anchor="w")
+            return grp
 
-            ent = tk.Entry(
-                grp,
-                textvariable=var,
-                bg=BG_CARD,
-                fg=TEXT_WHITE,
-                insertbackground=TEXT_WHITE,
-                relief="flat",
-                font=F_BODY,
-                highlightbackground=BORDER,
-                highlightthickness=1,
-            )
-            ent.pack(fill="x", ipady=5, pady=(4, 0))
+        carga_grp = _make_group("Porto de carga")
+        descarga_grp = _make_group("Porto de descarga")
 
-        nav_row(f, "screen4", "screen6", self._navigate)
+        combo_cfg = dict(state="readonly", font=F_BODY)
+        porto_carga_combo = ttk.Combobox(carga_grp, textvariable=self._model.porto_carga_var, values=port_names, **combo_cfg)
+        porto_carga_combo.pack(fill="x", ipady=4, pady=(4, 0))
+        porto_descarga_combo = ttk.Combobox(
+            descarga_grp,
+            textvariable=self._model.porto_descarga_var,
+            values=port_names,
+            **combo_cfg,
+        )
+        porto_descarga_combo.pack(fill="x", ipady=4, pady=(4, 0))
+
+        if self._model.ports_load_error:
+            tk.Label(
+                fields_frame,
+                text=f"Não foi possível carregar os portos da BD.\n{self._model.ports_load_error}",
+                bg=BG_PANEL,
+                fg="#e0a030",
+                font=F_SMALL,
+                justify="left",
+            ).pack(anchor="w", pady=(2, 0))
+
+        eta_grp = _make_group("Prazo para entrega (ETA)")
+        eta_row = tk.Frame(eta_grp, bg=BG_PANEL)
+        eta_row.pack(fill="x", pady=(4, 0))
+        eta_ent = tk.Entry(
+            eta_row,
+            textvariable=self._model.eta_var,
+            state="readonly",
+            readonlybackground=BG_CARD,
+            fg=TEXT_WHITE,
+            relief="flat",
+            font=F_BODY,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+        )
+        eta_ent.pack(side="left", fill="x", expand=True, ipady=5)
+
+        def _parse_eta(value: str) -> date | None:
+            try:
+                return datetime.strptime(value, "%d/%m/%Y").date()
+            except ValueError:
+                return None
+
+        def _open_eta_picker() -> None:
+            root = f.winfo_toplevel()
+            popup = DatePickerPopup(root, title="Escolher Data ETA", initial_date=_parse_eta(self._model.eta_var.get()))
+            root.wait_window(popup)
+            if popup.result:
+                self._model.eta_var.set(popup.result.strftime("%d/%m/%Y"))
+
+        themed_btn(eta_row, "Calendario", _open_eta_picker, w=120).pack(side="left", padx=(8, 0))
+
+        clima_grp = _make_group("Estádo do clima")
+        clima_values = ["Mar moderado", "Bonanca"]
+        clima_combo = ttk.Combobox(
+            clima_grp,
+            textvariable=self._model.estado_clima_var,
+            values=clima_values,
+            **combo_cfg,
+        )
+        clima_combo.pack(fill="x", ipady=4, pady=(4, 0))
+
+        combustivel_grp = _make_group("Custo de combustivel por Litro")
+        combustivel_ent = tk.Entry(
+            combustivel_grp,
+            textvariable=self._model.custo_combustivel_litro_var,
+            bg=BG_CARD,
+            fg=TEXT_WHITE,
+            insertbackground=TEXT_WHITE,
+            relief="flat",
+            font=F_BODY,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+        )
+        combustivel_ent.pack(fill="x", ipady=5, pady=(4, 0))
+
+        port_fields: list[tuple[tk.StringVar, ttk.Combobox]] = [
+            (self._model.porto_carga_var, porto_carga_combo),
+            (self._model.porto_descarga_var, porto_descarga_combo),
+        ]
+
+        def _normalize_unique_ports() -> None:
+            seen: set[str] = set()
+            for var, _combo in port_fields:
+                val = var.get().strip()
+                if not val:
+                    continue
+                if val in seen:
+                    var.set("")
+                else:
+                    seen.add(val)
+
+        def _refresh_port_values() -> None:
+            _normalize_unique_ports()
+            selected = {var.get().strip() for var, _combo in port_fields if var.get().strip()}
+            for var, combo in port_fields:
+                current = var.get().strip()
+                combo.configure(values=[name for name in port_names if name == current or name not in selected])
+
+        def _on_port_change(_event=None) -> None:
+            _refresh_port_values()
+
+        for _var, combo in port_fields:
+            combo.bind("<<ComboboxSelected>>", _on_port_change)
+        _refresh_port_values()
+
+        nav_row(f, "screen4", self._go_next_from_screen5, self._navigate)
 
     def _build_scrollable_route_cards(
         self, list_parent: tk.Widget, routes: Sequence[RouteRow], map_controller: WorldRouteMapController
@@ -412,6 +806,7 @@ class DashboardView:
 
         body = tk.Frame(f, bg=BG_PANEL)
         body.pack(fill="both", expand=True, pady=10)
+        filtered_routes = self._model.filtered_routes_for_selected_ports()
 
         if self._model.routes_load_error:
             tk.Label(
@@ -431,7 +826,23 @@ class DashboardView:
                 font=F_BODY,
                 justify="left",
             ).pack(anchor="w", pady=8)
+        elif not filtered_routes:
+            tk.Label(
+                body,
+                text=(
+                    "Não existem rotas para a combinação selecionada.\n"
+                    "Ajuste 'Porto de carga' e/ou 'Porto de descarga' no ecrã anterior."
+                ),
+                bg=BG_PANEL,
+                fg=TEXT_MUTED,
+                font=F_BODY,
+                justify="left",
+            ).pack(anchor="w", pady=8)
         else:
+            visible_route_ids = {route.id for route in filtered_routes}
+            if self._model.selected_route_id.get() not in visible_route_ids:
+                self._model.selected_route_id.set(filtered_routes[0].id)
+
             split = tk.Frame(body, bg=BG_PANEL)
             split.pack(fill="both", expand=True)
 
@@ -455,9 +866,9 @@ class DashboardView:
 
             map_controller = WorldRouteMapController(map_canvas)
 
-            self._build_scrollable_route_cards(list_col, self._model.routes_catalog, map_controller)
+            self._build_scrollable_route_cards(list_col, filtered_routes, map_controller)
 
-        nav_row(f, "screen5", "screen7", self._navigate)
+        nav_row(f, "screen5", self._go_next_from_screen6, self._navigate)
 
     def _screen_screen7(self, parent: tk.Widget) -> None:
         f = themed_panel(parent, "Navio Compatível")
@@ -519,7 +930,7 @@ class DashboardView:
             ).pack(anchor="w", pady=(0, 6))
             self._build_scrollable_ship_list(ships_col, self._model.ships_catalog)
 
-        nav_row(f, "screen6", "screen7b", self._navigate)
+        nav_row(f, "screen6", self._go_next_from_screen7, self._navigate)
 
     def _select_ship(self, ship_id: int) -> None:
         self._model.selected_ship_id = ship_id
@@ -616,8 +1027,8 @@ class DashboardView:
                 justify="left",
             ).pack(anchor="w", pady=(8, 0))
 
-        themed_btn(right, "Confirmar Navio", lambda: self._navigate("screen8"), w=160).pack(anchor="e", pady=2)
-        nav_row(f, "screen7", "screen8", self._navigate)
+        themed_btn(right, "Confirmar Navio", self._go_next_from_screen7b, w=160).pack(anchor="e", pady=2)
+        nav_row(f, "screen7", self._go_next_from_screen7b, self._navigate)
 
     def _screen_screen8(self, parent: tk.Widget) -> None:
         f = themed_panel(parent, "Plano de Estiva")
@@ -637,7 +1048,7 @@ class DashboardView:
             ("Carga", self._model.cargo_var.get()),
             ("Porto Carga", self._model.porto_carga_var.get() or "Lisboa"),
             ("Porto Descarga", self._model.porto_descarga_var.get() or "Antuérpia"),
-            ("ETA", self._model.eta_var.get() or "20/11/2026"),
+            ("ETA", self._model.eta_var.get() or "—"),
             ("Rota", route_text),
             ("Navio", self._model.selected_ship_display_name()),
         ]

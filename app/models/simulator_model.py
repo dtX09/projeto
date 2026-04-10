@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from PIL import Image, ImageTk
+from app.db.port_repository import fetch_ports
 
 from app.db.route_repository import PortWaypoint, RouteRow, fetch_route_waypoints, fetch_routes
 from app.db.ship_repository import ShipRow, fetch_ships
@@ -14,6 +15,7 @@ class SimulatorModel:
         self._master = master
         self.routes_catalog, self.routes_load_error = fetch_routes()
         self.ships_catalog, self.ships_load_error = fetch_ships()
+        self.ports_catalog, self.ports_load_error = fetch_ports()
         first_ship = self.ships_catalog[0].id if self.ships_catalog else 0
         self.selected_ship_id = first_ship
         self.ship_confirm_photo: ImageTk.PhotoImage | None = None
@@ -25,7 +27,9 @@ class SimulatorModel:
         self.cargo_var = tk.StringVar(master=master, value="Contentores (FCL)")
         self.porto_carga_var = tk.StringVar(master=master, value="")
         self.porto_descarga_var = tk.StringVar(master=master, value="")
-        self.eta_var = tk.StringVar(master=master, value="20/11/2026")
+        self.estado_clima_var = tk.StringVar(master=master, value="")
+        self.custo_combustivel_litro_var = tk.StringVar(master=master, value="")
+        self.eta_var = tk.StringVar(master=master, value="")
 
         self.logo_img: ImageTk.PhotoImage | None = None
         self.screen1_bg: ImageTk.PhotoImage | None = None
@@ -79,6 +83,31 @@ class SimulatorModel:
 
     def waypoints_for_route(self, route_id: int) -> tuple[PortWaypoint, ...]:
         return self.route_waypoints.get(route_id, ())
+
+    def filtered_routes_for_selected_ports(self) -> list[RouteRow]:
+        """Filtra rotas pelo porto inicial/final escolhidos no ecrã 5."""
+        start_port = self.porto_carga_var.get().strip()
+        end_port = self.porto_descarga_var.get().strip()
+
+        if not start_port and not end_port:
+            return list(self.routes_catalog)
+
+        filtered: list[RouteRow] = []
+        for route in self.routes_catalog:
+            waypoints = self.waypoints_for_route(route.id)
+            if not waypoints:
+                continue
+
+            first_name = waypoints[0].name.strip()
+            last_name = waypoints[-1].name.strip()
+
+            if start_port and first_name != start_port:
+                continue
+            if end_port and last_name != end_port:
+                continue
+            filtered.append(route)
+
+        return filtered
 
     def get_selected_ship(self) -> ShipRow | None:
         for s in self.ships_catalog:

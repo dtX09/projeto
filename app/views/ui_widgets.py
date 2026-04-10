@@ -68,11 +68,15 @@ def themed_panel(parent: tk.Widget, title: str) -> tk.Frame:
 def nav_row(
     parent: tk.Widget,
     back: str,
-    next_: str,
+    next_: str | Callable[[], None],
     navigate: Callable[[str], None],
 ) -> None:
     nav = tk.Frame(parent, bg=BG_PANEL)
     nav.pack(fill="x", pady=(8, 0))
 
     themed_btn(nav, "Voltar", lambda: navigate(back), secondary=True, w=100).pack(side="left", pady=2)
-    themed_btn(nav, "Próximo  ➜", lambda: navigate(next_), w=130).pack(side="right", pady=2)
+    if isinstance(next_, str):
+        next_cmd = lambda: navigate(next_)
+    else:
+        next_cmd = next_
+    themed_btn(nav, "Próximo  ➜", next_cmd, w=130).pack(side="right", pady=2)

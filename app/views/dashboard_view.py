@@ -327,12 +327,26 @@ class DashboardView:
             missing.append("Porto de carga")
         if not self._model.porto_descarga_var.get().strip():
             missing.append("Porto de descarga")
-        if not self._model.eta_var.get().strip():
+        eta_text = self._model.eta_var.get().strip()
+        if not eta_text:
             missing.append("Prazo para entrega (ETA)")
+        else:
+            try:
+                eta_date = datetime.strptime(eta_text, "%d/%m/%Y").date()
+                if eta_date <= date.today():
+                    missing.append("Prazo para entrega (ETA) deve ser após a data atual")
+            except ValueError:
+                missing.append("Prazo para entrega (ETA) deve estar no formato DD/MM/AAAA")
         if not self._model.estado_clima_var.get().strip():
             missing.append("Estádo do clima")
-        if not self._model.custo_combustivel_litro_var.get().strip():
+        fuel_text = self._model.custo_combustivel_litro_var.get().strip()
+        if not fuel_text:
             missing.append("Custo de combustivel por Litro")
+        else:
+            try:
+                float(fuel_text.replace(",", "."))
+            except ValueError:
+                missing.append("Custo de combustivel por Litro deve ser um número decimal")
         return missing
 
     def _missing_screen6_fields(self) -> list[str]:

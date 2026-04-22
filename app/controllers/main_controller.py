@@ -21,9 +21,15 @@ class MainController:
         self._dashboard = DashboardView(model, self.go)
         self._current_screen: str | None = None
         self._screen3_back_target = "screen1"
+        self._apply_global_text_scale()
 
         self._build_shell()
         self.go("screen1")
+
+    def _apply_global_text_scale(self) -> None:
+        """Aumenta a escala tipográfica global para 175% do valor atual."""
+        current_scale = float(self._root.tk.call("tk", "scaling"))
+        self._root.tk.call("tk", "scaling", current_scale * 1.45)
 
     def _build_shell(self) -> None:
         self._header = tk.Frame(self._root, bg=HEADER_BG, height=60)
@@ -37,8 +43,8 @@ class MainController:
         self._content = tk.Frame(self._body, bg=BG_DARK)
         self._content.pack(side="left", fill="both", expand=True)
 
-        self._sidebar_frame = tk.Frame(self._body, bg=SIDEBAR_BG, width=155)
-        self._sidebar_frame.pack(side="right", fill="y")
+        self._sidebar_frame = tk.Frame(self._body, bg=SIDEBAR_BG, width=240)
+        self._sidebar_frame.pack(side="left", fill="y")
         self._sidebar_frame.pack_propagate(False)
         self._sidebar_frame.pack_forget()
 
@@ -79,7 +85,7 @@ class MainController:
             w.destroy()
 
         if screen in _SIDEBAR_SCREENS:
-            self._sidebar_frame.pack(side="right", fill="y")
+            self._sidebar_frame.pack(side="left", fill="y", before=self._content)
             active = "screen7" if screen == "screen7b" else screen
             self._dashboard.rebuild_sidebar(self._sidebar_frame, active)
         else:

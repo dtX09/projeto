@@ -4,10 +4,17 @@ from __future__ import annotations
 
 import tkinter as tk
 from PIL import Image, ImageTk
+from app.db.cargo_repository import (
+    CargoTypeRow,
+    CargoRow,
+    fetch_all_cargo,
+    fetch_cargo_types,
+    group_cargo_by_type_id,
+)
 from app.db.port_repository import fetch_ports
-
 from app.db.route_repository import PortWaypoint, RouteRow, fetch_route_waypoints, fetch_routes
 from app.db.ship_repository import ShipRow, fetch_ships
+from app.db.weather_repository import fetch_weather_names
 
 
 class SimulatorModel:
@@ -16,6 +23,11 @@ class SimulatorModel:
         self.routes_catalog, self.routes_load_error = fetch_routes()
         self.ships_catalog, self.ships_load_error = fetch_ships()
         self.ports_catalog, self.ports_load_error = fetch_ports()
+        self.cargo_types_catalog, err_types = fetch_cargo_types()
+        self.cargo_catalog, err_cargo = fetch_all_cargo()
+        self.cargo_load_error = err_types or err_cargo
+        self.cargo_by_type_id = group_cargo_by_type_id(self.cargo_catalog)
+        self.weather_names, self.weather_load_error = fetch_weather_names()
         first_ship = self.ships_catalog[0].id if self.ships_catalog else 0
         self.selected_ship_id = first_ship
         self.ship_confirm_photo: ImageTk.PhotoImage | None = None
@@ -24,7 +36,11 @@ class SimulatorModel:
             self.route_waypoints, _ = fetch_route_waypoints()
         first_id = self.routes_catalog[0].id if self.routes_catalog else 0
         self.selected_route_id = tk.IntVar(master=master, value=first_id)
-        self.cargo_var = tk.StringVar(master=master, value="Contentores (FCL)")
+        type_ids = self.available_cargo_type_ids()
+        first_tid = type_ids[0] if type_ids else 0
+        self.cargo_type_id_var = tk.IntVar(master=master, value=first_tid)
+        first_cargo = self._first_cargo_id_in_type(first_tid)
+        self.selected_cargo_id_var = tk.IntVar(master=master, value=first_cargo or 0)
         self.porto_carga_var = tk.StringVar(master=master, value="")
         self.porto_descarga_var = tk.StringVar(master=master, value="")
         self.estado_clima_var = tk.StringVar(master=master, value="")
@@ -118,3 +134,73 @@ class SimulatorModel:
     def selected_ship_display_name(self) -> str:
         s = self.get_selected_ship()
         return s.name if s else "—"
+
+    def available_cargo_type_ids(self) -> list[int]:
+        """Tipos de carga (tabela cargo_type) que têm linhas em cargo"""
+        have = set(self.cargo_by_type_id.keys())
+        return [t.id for t in self.cargo_types_catalog if t.id in have]
+
+    def cargo_type_display_name(self, type_id: int) -> str:
+        for t in self.cargo_types_catalog:
+            if t.id == type_id:
+                return t.name
+        return str(type_id)
+
+    def get_cargo_type(self, type_id: int) -> CargoTypeRow | None:
+        for t in self.cargo_types_catalog:
+            if t.id == type_id:
+                return t
+        return None
+
+    def _first_cargo_id_in_type(self, type_id: int) -> int | None:
+        lst = self.cargo_by_type_id.get(type_id) or []
+        return lst[0].id if lst else None
+
+    def get_selected_cargo(self) -> CargoRow | None:
+        cid = self.selected_cargo_id_var.get()
+        for c in self.cargo_catalog:
+            if c.id == cid:
+                return c
+        return self.cargo_catalog[0] if self.cargo_catalog else None
+
+    def selected_cargo_type_label(self) -> str:
+        c = self.get_selected_cargo()
+        return c.cargo_type_name if c else "—"
+
+    def selected_cargo_one_line(self) -> str:
+        c = self.get_selected_cargo()
+        if not c:
+            return "—"
+        return f"{c.cargo_name} ({self.selected_cargo_type_label()})"
+
+    def weather_combo_values(self) -> list[str]:
+        if self.weather_names:
+            return list(self.weather_names)
+        return ["Mar moderado", "Bonança"]
+
+    def ensure_ship_compatible_with_cargo(self) -> None:
+        """Se o navio atual não for compatível com a carga, seleciona o primeiro compatível."""
+        ok = {s.id for s in self.ships_for_selected_cargo()}
+        if ok and self.selected_ship_id not in ok:
+            self.selected_ship_id = min(ok)
+
+    def ships_for_selected_cargo(self) -> list[ShipRow]:
+        """Navios compatíveis com a carga escolhida (contentor vs líquido), com base no tipo na BD."""
+        c = self.get_selected_cargo()
+        all_s = self.ships_catalog
+        if not c or not all_s:
+            return list(all_s)
+
+        def is_tanker_type(name: str) -> bool:
+            n = (name or "").lower()
+            return any(x in n for x in ("líquid", "liquido", "tanque", "químic", "granel"))
+
+        def is_container_type(name: str) -> bool:
+            n = (name or "").lower()
+            return any(x in n for x in ("contentor", "porta-content", "container"))
+
+        if not c.need_container:
+            hit = [s for s in all_s if is_tanker_type(s.ship_type_name)]
+            return hit if hit else list(all_s)
+        hit = [s for s in all_s if is_container_type(s.ship_type_name)]
+        return hit if hit else list(all_s)

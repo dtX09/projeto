@@ -11,6 +11,7 @@ from collections.abc import Callable, Sequence
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
+from app.db.cargo_repository import CargoRow, is_dangerous_container, is_liquid_bulk
 from app.db.route_repository import RouteRow
 from app.db.ship_repository import ShipRow
 from app.utils.photo_loader import load_photoimage
@@ -41,6 +42,64 @@ from app.views.ui_widgets import nav_row, themed_btn, themed_panel
 
 if TYPE_CHECKING:
     from app.models.simulator_model import SimulatorModel
+
+
+def _format_cargo_detail_right_panel(c: CargoRow) -> str:
+    lines = [
+        f"Tipo (BD): {c.cargo_type_name}",
+        f"Nome: {c.cargo_name}",
+        f"Peso: {c.weight:.2f} t · Volume: {c.volume:.2f} m³",
+        f"Prioridade: {c.priority}",
+        f"IMDG: {c.imdg_class}",
+        f"Quantidade: {c.quantity:g} {c.unit}",
+    ]
+    if is_liquid_bulk(c):
+        lines.append("Estivagem: tanques (sem contentor)")
+    else:
+        lines.append("Estivagem: contentor")
+        if c.temperature_required is not None:
+            lines.append(f"Temperatura alvo: {c.temperature_required:.1f} °C")
+        else:
+            lines.append("Temperatura: ambiente (sem controlo reefer)")
+    return "\n".join(lines)
+
+
+def _cargo_stowage_main_and_info(c: CargoRow, port_start: str, port_end: str) -> tuple[str, str]:
+    p0, p1 = (port_start or "—"), (port_end or "—")
+    if is_liquid_bulk(c):
+        main = (
+            f"{c.cargo_name}\n"
+            f"{p0} → {p1}\n"
+            f"Volume: {c.quantity:g} {c.unit} · Massa declarada: {c.weight:.0f} t"
+        )
+        info = (
+            "Modo: carga líquida a granel\n"
+            f"Classe IMDG: {c.imdg_class}\n"
+            "Temperatura: conforme especificação do produto\n"
+            "Estivagem: tanques — segregação e limites de enchimento conforme plano"
+        )
+        return main, info
+
+    main = (
+        f"{c.cargo_name}\n"
+        f"~{c.volume:.0f} m³ · {c.weight:.1f} t · prioridade {c.priority}\n"
+        f"{p0} → {p1}"
+    )
+    temp = f"{c.temperature_required:.1f} °C" if c.temperature_required is not None else "Ambiente"
+    imdg_line = (
+        "Mercadoria perigosa — seguir segregação IMDG"
+        if is_dangerous_container(c)
+        else "Sem classificação de perigo (IMDG N/A ou não aplicável)"
+    )
+    info = (
+        "Modo: contentor (FCL)\n"
+        f"Classe IMDG indicada: {c.imdg_class}\n"
+        f"{imdg_line}\n"
+        f"Temperatura: {temp}\n"
+        f"Quantidade declarada: {c.quantity:g} {c.unit}"
+    )
+    return main, info
+
 
 _SIDEBAR_ITEMS = [
     ("Tipo de Rota", "screen3"),
@@ -317,8 +376,14 @@ class DashboardView:
 
     def _missing_screen4_fields(self) -> list[str]:
         missing: list[str] = []
-        if not self._model.cargo_var.get().strip():
-            missing.append("Tipo de carga")
+        if self._model.cargo_load_error:
+            missing.append("Ligação à BD para carregar cargas")
+            return missing
+        if not self._model.cargo_catalog:
+            missing.append("Não existem cargas na tabela cargo (execute o seed)")
+            return missing
+        if not self._model.get_selected_cargo():
+            missing.append("Selecione uma carga")
         return missing
 
     def _missing_screen5_fields(self) -> list[str]:
@@ -426,39 +491,129 @@ class DashboardView:
         body = tk.Frame(f, bg=BG_PANEL)
         body.pack(fill="both", expand=True, pady=10)
 
+        if self._model.cargo_load_error:
+            tk.Label(
+                body,
+                text=f"Não foi possível carregar cargas da BD.\n{self._model.cargo_load_error}",
+                bg=BG_PANEL,
+                fg="#e0a030",
+                font=F_SMALL,
+                justify="left",
+            ).pack(anchor="w", pady=8)
+            nav_row(f, "screen3", self._go_next_from_screen4, self._navigate)
+            return
+
+        if not self._model.cargo_catalog:
+            tk.Label(
+                body,
+                text="Não existem linhas na tabela cargo. Execute bd/scriptSeedBaseDados.sql.",
+                bg=BG_PANEL,
+                fg=TEXT_MUTED,
+                font=F_BODY,
+                justify="left",
+            ).pack(anchor="w", pady=8)
+            nav_row(f, "screen3", self._go_next_from_screen4, self._navigate)
+            return
+
         left = tk.Frame(body, bg=BG_CARD, padx=12, pady=10, highlightbackground=BORDER, highlightthickness=1)
         left.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
-        tk.Label(left, text="Tipo de carga", bg=BG_CARD, fg=TEXT_WHITE, font=F_HEADING).pack(anchor="w", pady=(0, 10))
+        tk.Label(left, text="Tipo de carga (cargo_type)", bg=BG_CARD, fg=TEXT_WHITE, font=F_HEADING).pack(
+            anchor="w", pady=(0, 6)
+        )
+        tk.Label(
+            left,
+            text="Tipos vêm da tabela cargo_type; cada tipo agrupa várias linhas em cargo (FK id_cargo_type).",
+            bg=BG_CARD,
+            fg=TEXT_MUTED,
+            font=F_SMALL,
+            wraplength=280,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 8))
 
-        options = [
-            "Contentores (FCL)",
-            "Contentores (LCL)",
-            "Granéis sólidos",
-            "Granéis líquidos",
-            "Carga geral",
-            "Ro-Ro",
-        ]
+        type_ids = self._model.available_cargo_type_ids()
 
-        for opt in options:
-            rb = tk.Radiobutton(
+        def on_pick_type(tid: int) -> None:
+            self._model.cargo_type_id_var.set(tid)
+            lst = self._model.cargo_by_type_id.get(tid) or []
+            if lst:
+                self._model.selected_cargo_id_var.set(lst[0].id)
+            _rebuild_cargo_rows()
+
+        for tid in type_ids:
+            lbl = self._model.cargo_type_display_name(tid)
+            tk.Radiobutton(
                 left,
-                text=opt,
-                variable=self._model.cargo_var,
-                value=opt,
+                text=lbl,
+                variable=self._model.cargo_type_id_var,
+                value=tid,
                 bg=BG_CARD,
                 fg=TEXT_DARK,
                 selectcolor=BG_CARD,
                 activebackground=BG_CARD,
                 font=F_BODY,
                 indicatoron=True,
-            )
-            rb.pack(anchor="w", pady=2)
+                command=lambda t=tid: on_pick_type(t),
+            ).pack(anchor="w", pady=2)
+
+        tk.Label(left, text="Carga concreta (exemplo na BD)", bg=BG_CARD, fg=TEXT_WHITE, font=F_HEADING).pack(
+            anchor="w", pady=(14, 6)
+        )
+
+        cargo_rows_host = tk.Frame(left, bg=BG_CARD)
+        cargo_rows_host.pack(fill="both", expand=True)
 
         right = tk.Frame(body, bg=BG_CARD, padx=12, pady=10, highlightbackground=BORDER, highlightthickness=1)
         right.pack(side="left", fill="both", expand=True)
 
-        tk.Label(right, text="Mais dados sobre a carga", bg=BG_CARD, fg=TEXT_MUTED, font=F_BODY).pack(expand=True)
+        tk.Label(right, text="Detalhe da carga selecionada", bg=BG_CARD, fg=TEXT_WHITE, font=F_HEADING).pack(
+            anchor="w", pady=(0, 8)
+        )
+        detail_lbl = tk.Label(
+            right,
+            text="",
+            bg=BG_CARD,
+            fg=TEXT_DARK,
+            font=F_SMALL,
+            justify="left",
+            anchor="nw",
+            wraplength=320,
+        )
+        detail_lbl.pack(fill="both", expand=True, anchor="nw")
+
+        def _refresh_detail() -> None:
+            c = self._model.get_selected_cargo()
+            detail_lbl.config(text=_format_cargo_detail_right_panel(c) if c else "—")
+
+        def _rebuild_cargo_rows() -> None:
+            for w in cargo_rows_host.winfo_children():
+                w.destroy()
+            tid = self._model.cargo_type_id_var.get()
+            for cr in self._model.cargo_by_type_id.get(tid, ()):
+
+                def pick(c_id: int = cr.id) -> None:
+                    self._model.selected_cargo_id_var.set(c_id)
+                    _refresh_detail()
+
+                tk.Radiobutton(
+                    cargo_rows_host,
+                    text=cr.cargo_name,
+                    variable=self._model.selected_cargo_id_var,
+                    value=cr.id,
+                    bg=BG_CARD,
+                    fg=TEXT_DARK,
+                    selectcolor=BG_CARD,
+                    activebackground=BG_CARD,
+                    font=F_BODY,
+                    indicatoron=True,
+                    command=pick,
+                ).pack(anchor="w", pady=1)
+            _refresh_detail()
+
+        if self._model.cargo_type_id_var.get() not in type_ids and type_ids:
+            on_pick_type(type_ids[0])
+        else:
+            _rebuild_cargo_rows()
 
         nav_row(f, "screen3", self._go_next_from_screen4, self._navigate)
 
@@ -535,7 +690,7 @@ class DashboardView:
         themed_btn(eta_row, "Calendario", _open_eta_picker, w=120).pack(side="left", padx=(8, 0))
 
         clima_grp = _make_group("Estádo do clima")
-        clima_values = ["Mar moderado", "Bonanca"]
+        clima_values = self._model.weather_combo_values()
         clima_combo = ttk.Combobox(
             clima_grp,
             textvariable=self._model.estado_clima_var,
@@ -543,6 +698,15 @@ class DashboardView:
             **combo_cfg,
         )
         clima_combo.pack(fill="x", ipady=4, pady=(4, 0))
+        if self._model.weather_load_error:
+            tk.Label(
+                clima_grp,
+                text=f"Aviso: não foi possível ler weather_condition — valores por omissão.\n{self._model.weather_load_error}",
+                bg=BG_PANEL,
+                fg="#e0a030",
+                font=F_SMALL,
+                justify="left",
+            ).pack(anchor="w", pady=(4, 0))
 
         combustivel_grp = _make_group("Custo de combustivel por Litro")
         combustivel_ent = tk.Entry(
@@ -887,6 +1051,8 @@ class DashboardView:
     def _screen_screen7(self, parent: tk.Widget) -> None:
         f = themed_panel(parent, "Navio Compatível")
 
+        self._model.ensure_ship_compatible_with_cargo()
+
         body = tk.Frame(f, bg=BG_PANEL)
         body.pack(fill="both", expand=True, pady=10)
 
@@ -935,14 +1101,19 @@ class DashboardView:
                 font=F_BODY,
             ).pack(anchor="w")
         else:
+            ships = self._model.ships_for_selected_cargo()
+            hint = "Navios disponíveis (base de dados) — use o scroll se a lista for longa."
+            if len(ships) < len(self._model.ships_catalog):
+                hint += "\nLista filtrada pelo tipo de carga escolhido no ecrã «Dados de carga» (contentor vs líquido)."
             tk.Label(
                 ships_col,
-                text="Navios disponíveis (base de dados) — use o scroll se a lista for longa.",
+                text=hint,
                 bg=BG_PANEL,
                 fg=TEXT_MUTED,
                 font=F_SMALL,
+                justify="left",
             ).pack(anchor="w", pady=(0, 6))
-            self._build_scrollable_ship_list(ships_col, self._model.ships_catalog)
+            self._build_scrollable_ship_list(ships_col, ships)
 
         nav_row(f, "screen6", self._go_next_from_screen7, self._navigate)
 
@@ -1057,11 +1228,13 @@ class DashboardView:
 
         route_text = self._model.selected_route_one_line()
 
+        cargo = self._model.get_selected_cargo()
         info_items = [
             ("Tipo de Rota", "Rota definida (liner)"),
-            ("Carga", self._model.cargo_var.get()),
-            ("Porto Carga", self._model.porto_carga_var.get() or "Lisboa"),
-            ("Porto Descarga", self._model.porto_descarga_var.get() or "Antuérpia"),
+            ("Tipo de carga", self._model.selected_cargo_type_label()),
+            ("Carga (BD)", cargo.cargo_name if cargo else "—"),
+            ("Porto Carga", self._model.porto_carga_var.get() or "—"),
+            ("Porto Descarga", self._model.porto_descarga_var.get() or "—"),
             ("ETA", self._model.eta_var.get() or "—"),
             ("Rota", route_text),
             ("Navio", self._model.selected_ship_display_name()),
@@ -1198,9 +1371,17 @@ class DashboardView:
             justify="left",
         ).pack(anchor="nw")
 
+        c = self._model.get_selected_cargo()
+        p0 = self._model.porto_carga_var.get().strip()
+        p1 = self._model.porto_descarga_var.get().strip()
+        main_txt, info_txt = (
+            _cargo_stowage_main_and_info(c, p0, p1)
+            if c
+            else ("—", "Selecione uma carga no ecrã «Dados de carga».")
+        )
         tk.Label(
             cargo_box,
-            text="MSCU1234567\n40' HC Dry\nLisboa → Antuérpia\nPeso: 28.4 t",
+            text=main_txt,
             bg=BG_CARD,
             fg=TEXT_DARK,
             font=F_SMALL,
@@ -1213,7 +1394,7 @@ class DashboardView:
         tk.Label(inf_box, text="Info sobre a carga", bg=BG_CARD, fg=TEXT_MUTED, font=F_SMALL).pack(anchor="nw")
         tk.Label(
             inf_box,
-            text="Classe IMO: N/A\nIMDG: Não perigoso\nTemperatura: Ambiente\nVentilação: Normal",
+            text=info_txt,
             bg=BG_CARD,
             fg=TEXT_DARK,
             font=F_SMALL,

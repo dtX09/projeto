@@ -15,6 +15,7 @@ from app.db.port_repository import fetch_ports
 from app.db.route_repository import PortWaypoint, RouteRow, fetch_route_waypoints, fetch_routes
 from app.db.ship_repository import ShipRow, fetch_ships
 from app.db.weather_repository import fetch_weather_names
+from app.utils.resource_path import resolve_resource_path
 
 
 class SimulatorModel:
@@ -57,24 +58,24 @@ class SimulatorModel:
 
     def _load_images(self) -> None:
         try:
-            self.logo_src = Image.open("imgs/ENIDH_ultra_horizontal_branco.png")
+            self.logo_src = Image.open(resolve_resource_path("imgs/ENIDH_ultra_horizontal_branco.png"))
             logo = self.logo_src.resize((320, 44), Image.LANCZOS)
             self.logo_img = ImageTk.PhotoImage(logo)
         except Exception:
             self.logo_img = None
 
         try:
-            self.liner_src = Image.open("imgs/boat2.jpg")
+            self.liner_src = Image.open(resolve_resource_path("imgs/boat2.jpg"))
         except Exception:
             self.liner_src = None
 
         try:
-            self.tramp_src = Image.open("imgs/boat1.jpg")
+            self.tramp_src = Image.open(resolve_resource_path("imgs/boat1.jpg"))
         except Exception:
             self.tramp_src = None
 
         try:
-            self.screen1_bg_src = Image.open("imgs/backg.png")
+            self.screen1_bg_src = Image.open(resolve_resource_path("imgs/backg.png"))
         except Exception:
             self.screen1_bg_src = None
 

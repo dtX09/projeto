@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import io
 import urllib.request
-from pathlib import Path
 
 from PIL import Image, ImageTk
+from app.utils.resource_path import resolve_resource_path
 
 
 def open_pil_image(url_or_path: str) -> Image.Image:
@@ -18,7 +18,7 @@ def open_pil_image(url_or_path: str) -> Image.Image:
             data = resp.read()
         img = Image.open(io.BytesIO(data))
     else:
-        path = Path(raw)
+        path = resolve_resource_path(raw)
         if not path.is_file():
             raise FileNotFoundError(f"Ficheiro não encontrado: {path}")
         img = Image.open(path)

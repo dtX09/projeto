@@ -11,17 +11,14 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from PIL import Image, ImageDraw, ImageFont, ImageTk
+from app.utils.resource_path import resolve_resource_path
 
 ROUTE_LINE_RGBA = (90, 176, 232, 240)
 PIN_RGBA = (226, 75, 74, 255)
 
 
-def _project_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent
-
-
 def _resolve_mundo_path() -> Path:
-    return _project_root() / "imgs" / "mundo.png"
+    return resolve_resource_path("imgs/mundo.png")
 
 
 def lat_lng_to_pixel(lat: float, lng: float, img_w: int, img_h: int) -> tuple[int, int]:

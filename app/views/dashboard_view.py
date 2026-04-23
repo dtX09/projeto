@@ -394,14 +394,14 @@ class DashboardView:
             missing.append("Porto de descarga")
         eta_text = self._model.eta_var.get().strip()
         if not eta_text:
-            missing.append("Prazo para entrega (ETA)")
+            missing.append("Prazo para entrega")
         else:
             try:
                 eta_date = datetime.strptime(eta_text, "%d/%m/%Y").date()
                 if eta_date <= date.today():
-                    missing.append("Prazo para entrega (ETA) deve ser após a data atual")
+                    missing.append("Prazo para entrega deve ser após a data atual")
             except ValueError:
-                missing.append("Prazo para entrega (ETA) deve estar no formato DD/MM/AAAA")
+                missing.append("Prazo para entrega deve estar no formato DD/MM/AAAA")
         if not self._model.estado_clima_var.get().strip():
             missing.append("Estádo do clima")
         fuel_text = self._model.custo_combustivel_litro_var.get().strip()
@@ -500,7 +500,7 @@ class DashboardView:
                 font=F_SMALL,
                 justify="left",
             ).pack(anchor="w", pady=8)
-            nav_row(f, "screen3", self._go_next_from_screen4, self._navigate)
+            nav_row(f, "screen3", self._go_next_from_screen4, self._navigate, show_back=False)
             return
 
         if not self._model.cargo_catalog:
@@ -512,7 +512,7 @@ class DashboardView:
                 font=F_BODY,
                 justify="left",
             ).pack(anchor="w", pady=8)
-            nav_row(f, "screen3", self._go_next_from_screen4, self._navigate)
+            nav_row(f, "screen3", self._go_next_from_screen4, self._navigate, show_back=False)
             return
 
         left = tk.Frame(body, bg=BG_CARD, padx=12, pady=10, highlightbackground=BORDER, highlightthickness=1)
@@ -615,7 +615,7 @@ class DashboardView:
         else:
             _rebuild_cargo_rows()
 
-        nav_row(f, "screen3", self._go_next_from_screen4, self._navigate)
+        nav_row(f, "screen3", self._go_next_from_screen4, self._navigate, show_back=False)
 
     def _screen_screen5(self, parent: tk.Widget) -> None:
         f = themed_panel(parent, "Configuração de Rota de Carga")
@@ -658,7 +658,7 @@ class DashboardView:
                 justify="left",
             ).pack(anchor="w", pady=(2, 0))
 
-        eta_grp = _make_group("Prazo para entrega (ETA)")
+        eta_grp = _make_group("Prazo para entrega")
         eta_row = tk.Frame(eta_grp, bg=BG_PANEL)
         eta_row.pack(fill="x", pady=(4, 0))
         eta_ent = tk.Entry(
@@ -752,7 +752,7 @@ class DashboardView:
             combo.bind("<<ComboboxSelected>>", _on_port_change)
         _refresh_port_values()
 
-        nav_row(f, "screen4", self._go_next_from_screen5, self._navigate)
+        nav_row(f, "screen4", self._go_next_from_screen5, self._navigate, show_back=False)
 
     def _build_scrollable_route_cards(
         self, list_parent: tk.Widget, routes: Sequence[RouteRow], map_controller: WorldRouteMapController
@@ -1046,7 +1046,7 @@ class DashboardView:
 
             self._build_scrollable_route_cards(list_col, filtered_routes, map_controller)
 
-        nav_row(f, "screen5", self._go_next_from_screen6, self._navigate)
+        nav_row(f, "screen5", self._go_next_from_screen6, self._navigate, show_back=False)
 
     def _screen_screen7(self, parent: tk.Widget) -> None:
         f = themed_panel(parent, "Navio Compatível")
@@ -1115,7 +1115,7 @@ class DashboardView:
             ).pack(anchor="w", pady=(0, 6))
             self._build_scrollable_ship_list(ships_col, ships)
 
-        nav_row(f, "screen6", self._go_next_from_screen7, self._navigate)
+        nav_row(f, "screen6", self._go_next_from_screen7, self._navigate, show_back=False)
 
     def _select_ship(self, ship_id: int) -> None:
         self._model.selected_ship_id = ship_id
@@ -1213,7 +1213,7 @@ class DashboardView:
             ).pack(anchor="w", pady=(8, 0))
 
         themed_btn(right, "Confirmar Navio", self._go_next_from_screen7b, w=160).pack(anchor="e", pady=2)
-        nav_row(f, "screen7", self._go_next_from_screen7b, self._navigate)
+        nav_row(f, "screen7", self._go_next_from_screen7b, self._navigate, show_back=False)
 
     def _screen_screen8(self, parent: tk.Widget) -> None:
         f = themed_panel(parent, "Plano de Estiva")
@@ -1272,7 +1272,6 @@ class DashboardView:
         nav = tk.Frame(f, bg=BG_PANEL)
         nav.pack(fill="x", pady=(8, 0))
 
-        themed_btn(nav, "Voltar", lambda: self._navigate("screen7"), secondary=True, w=100).pack(side="left", pady=2)
         themed_btn(nav, "Finalizar  ✔", lambda: self._finalizar(parent), w=140).pack(side="right", pady=2)
 
     def _draw_bay_view(self, parent: tk.Widget) -> None:
@@ -1404,7 +1403,6 @@ class DashboardView:
         nav = tk.Frame(f, bg=BG_PANEL)
         nav.pack(fill="x", pady=(8, 0))
 
-        themed_btn(nav, "Voltar", lambda: self._navigate("screen8"), secondary=True, w=100).pack(side="left", pady=2)
         themed_btn(nav, "Finalizar  ✔", lambda: self._finalizar(parent), w=140).pack(side="right", pady=2)
 
     def _draw_ship_topview(self, parent: tk.Widget) -> None:

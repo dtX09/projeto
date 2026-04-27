@@ -4,7 +4,7 @@ CREATE TABLE cargo_type (
     name VARCHAR(120) NOT NULL,
     need_container BOOLEAN NOT NULL,
     description varchar(300),
-    PRIMARY KEY (id),
+    PRIMARY KEY (id)
 );
 
 CREATE TABLE cargo (

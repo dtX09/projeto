@@ -1,11 +1,10 @@
 /* Categoria operacional: perfil de estivagem (contentor vs tanque, família de produto). */
 CREATE TABLE cargo_type (
     id BIGINT NOT NULL,
-    code VARCHAR(40) NOT NULL,
     name VARCHAR(120) NOT NULL,
     need_container BOOLEAN NOT NULL,
+    description varchar(300),
     PRIMARY KEY (id),
-    UNIQUE (code)
 );
 
 CREATE TABLE cargo (
@@ -172,6 +171,7 @@ CREATE TABLE port (
     latitude DECIMAL(10,7) NOT NULL,
     longitude DECIMAL(10,7) NOT NULL,
     max_draft DECIMAL(8,2) NOT NULL,
+    channel_depth DECIMAL (8,2)	NOT NULL,
     max_ship_length DECIMAL(8,2) NOT NULL,
     tidal_restrictions BOOLEAN NOT NULL,
     description TEXT,

@@ -518,12 +518,12 @@ class DashboardView:
         left = tk.Frame(body, bg=BG_CARD, padx=12, pady=10, highlightbackground=BORDER, highlightthickness=1)
         left.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
-        tk.Label(left, text="Tipo de carga (cargo_type)", bg=BG_CARD, fg=TEXT_WHITE, font=F_HEADING).pack(
+        tk.Label(left, text="Tipo de carga", bg=BG_CARD, fg=TEXT_WHITE, font=F_HEADING).pack(
             anchor="w", pady=(0, 6)
         )
         tk.Label(
             left,
-            text="Tipos vêm da tabela cargo_type; cada tipo agrupa várias linhas em cargo (FK id_cargo_type).",
+            text="Selecione o tipo de carga.",
             bg=BG_CARD,
             fg=TEXT_MUTED,
             font=F_SMALL,
@@ -556,7 +556,7 @@ class DashboardView:
                 command=lambda t=tid: on_pick_type(t),
             ).pack(anchor="w", pady=2)
 
-        tk.Label(left, text="Carga concreta (exemplo na BD)", bg=BG_CARD, fg=TEXT_WHITE, font=F_HEADING).pack(
+        tk.Label(left, text="Carga", bg=BG_CARD, fg=TEXT_WHITE, font=F_HEADING).pack(
             anchor="w", pady=(14, 6)
         )
 
@@ -566,7 +566,7 @@ class DashboardView:
         right = tk.Frame(body, bg=BG_CARD, padx=12, pady=10, highlightbackground=BORDER, highlightthickness=1)
         right.pack(side="left", fill="both", expand=True)
 
-        tk.Label(right, text="Detalhe da carga selecionada", bg=BG_CARD, fg=TEXT_WHITE, font=F_HEADING).pack(
+        tk.Label(right, text="Detalhes da carga selecionada", bg=BG_CARD, fg=TEXT_WHITE, font=F_HEADING).pack(
             anchor="w", pady=(0, 8)
         )
         detail_lbl = tk.Label(
@@ -974,7 +974,7 @@ class DashboardView:
 
         tk.Label(
             f,
-            text="Selecione uma rota — mapa mundial (mundo.png) com trajeto e portos assinalados.",
+            text="Selecione uma rota.",
             bg=BG_PANEL,
             fg=TEXT_MUTED,
             font=F_BODY,
@@ -1102,9 +1102,9 @@ class DashboardView:
             ).pack(anchor="w")
         else:
             ships = self._model.ships_for_selected_cargo()
-            hint = "Navios disponíveis (base de dados) — use o scroll se a lista for longa."
+            hint = "Navios disponíveis."
             if len(ships) < len(self._model.ships_catalog):
-                hint += "\nLista filtrada pelo tipo de carga escolhido no ecrã «Dados de carga» (contentor vs líquido)."
+                hint += "\n"
             tk.Label(
                 ships_col,
                 text=hint,

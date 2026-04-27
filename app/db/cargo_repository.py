@@ -18,7 +18,6 @@ def _as_bool(v: object) -> bool:
 @dataclass(frozen=True)
 class CargoTypeRow:
     id: int
-    code: str
     name: str
     need_container: bool
 
@@ -27,7 +26,6 @@ class CargoTypeRow:
 class CargoRow:
     id: int
     id_cargo_type: int
-    cargo_type_code: str
     cargo_type_name: str
     need_container: bool
     cargo_name: str
@@ -73,7 +71,7 @@ def fetch_cargo_types() -> Tuple[List[CargoTypeRow], str | None]:
         return [], str(e)
 
     sql = """
-        SELECT id, code, name, need_container
+        SELECT id, name, need_container
         FROM cargo_type
         ORDER BY name ASC, id ASC
     """
@@ -82,11 +80,10 @@ def fetch_cargo_types() -> Tuple[List[CargoTypeRow], str | None]:
         cur = conn.cursor()
         cur.execute(sql)
         rows: List[CargoTypeRow] = []
-        for tid, code, name, need_c in cur.fetchall():
+        for tid, name, need_c in cur.fetchall():
             rows.append(
                 CargoTypeRow(
                     id=int(tid),
-                    code=str(code),
                     name=str(name),
                     need_container=_as_bool(need_c),
                 )
@@ -117,7 +114,6 @@ def fetch_all_cargo() -> Tuple[List[CargoRow], str | None]:
         SELECT
             c.id,
             c.id_cargo_type,
-            ct.code,
             ct.name,
             ct.need_container,
             c.cargo_name,
@@ -140,7 +136,6 @@ def fetch_all_cargo() -> Tuple[List[CargoRow], str | None]:
         for (
             cid,
             tid,
-            tcode,
             tname,
             need_c,
             cname,
@@ -156,7 +151,6 @@ def fetch_all_cargo() -> Tuple[List[CargoRow], str | None]:
                 CargoRow(
                     id=int(cid),
                     id_cargo_type=int(tid),
-                    cargo_type_code=str(tcode),
                     cargo_type_name=str(tname),
                     need_container=_as_bool(need_c),
                     cargo_name=str(cname),

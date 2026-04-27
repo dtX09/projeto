@@ -55,7 +55,7 @@ def mount_screen2(
 
     themed_btn(btn_frame, "Retomar plano de estiva", lambda: navigate("screen3"), w=220).pack(pady=2)
     tk.Frame(btn_frame, bg=BG_PANEL, height=8).pack()
-    themed_btn(btn_frame, "Criar novo plano de estiva", lambda: None, w=220).pack(pady=2)
+    themed_btn(btn_frame, "Criar novo plano de estiva", lambda: navigate("screen10"), w=220).pack(pady=2)
 
     nav = tk.Frame(f, bg=BG_DARK)
     nav.pack(fill="x", pady=(8, 0))

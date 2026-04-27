@@ -70,11 +70,14 @@ def nav_row(
     back: str,
     next_: str | Callable[[], None],
     navigate: Callable[[str], None],
+    *,
+    show_back: bool = True,
 ) -> None:
     nav = tk.Frame(parent, bg=BG_PANEL)
     nav.pack(fill="x", pady=(8, 0))
 
-    themed_btn(nav, "Voltar", lambda: navigate(back), secondary=True, w=100).pack(side="left", pady=2)
+    if show_back:
+        themed_btn(nav, "Voltar", lambda: navigate(back), secondary=True, w=100).pack(side="left", pady=2)
     if isinstance(next_, str):
         next_cmd = lambda: navigate(next_)
     else:

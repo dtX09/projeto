@@ -10,8 +10,19 @@ from app.views.dashboard_view import DashboardView
 from app.views.screen1_view import mount_screen1
 from app.views.screen2_view import mount_screen2
 from app.views.screen3_view import mount_screen3
+from app.views.screen10_view import mount_screen10
+from app.views.ui_widgets import themed_btn
 
 _SIDEBAR_SCREENS = frozenset({"screen4", "screen5", "screen6", "screen7", "screen7b", "screen8", "screen9"})
+_SIDEBAR_BACK_TARGETS = {
+    "screen4": "screen3",
+    "screen5": "screen4",
+    "screen6": "screen5",
+    "screen7": "screen6",
+    "screen7b": "screen7",
+    "screen8": "screen7",
+    "screen9": "screen8",
+}
 
 
 class MainController:
@@ -42,6 +53,10 @@ class MainController:
 
         self._content = tk.Frame(self._body, bg=BG_DARK)
         self._content.pack(side="left", fill="both", expand=True)
+
+        # Botão "Voltar" flutuante para manter posição fixa nos ecrãs 4-9.
+        self._floating_back_btn = themed_btn(self._body, "Voltar", lambda: None, secondary=True, w=100)
+        self._floating_back_btn.place_forget()
 
         self._sidebar_frame = tk.Frame(self._body, bg=SIDEBAR_BG, width=240)
         self._sidebar_frame.pack(side="left", fill="y")
@@ -88,8 +103,14 @@ class MainController:
             self._sidebar_frame.pack(side="left", fill="y", before=self._content)
             active = "screen7" if screen == "screen7b" else screen
             self._dashboard.rebuild_sidebar(self._sidebar_frame, active)
+            back_target = _SIDEBAR_BACK_TARGETS.get(screen)
+            if back_target is not None:
+                self._floating_back_btn.bind("<Button-1>", lambda _e, t=back_target: self.go(t))
+                self._floating_back_btn.place(x=20, rely=1.0, y=-56)
+                self._floating_back_btn.lift()
         else:
             self._sidebar_frame.pack_forget()
+            self._floating_back_btn.place_forget()
 
         if screen == "screen1":
             mount_screen1(self._content, self._model, self.go)
@@ -102,6 +123,8 @@ class MainController:
                 self.go,
                 go_back=lambda: self.go(self._screen3_back_target),
             )
+        elif screen == "screen10":
+            mount_screen10(self._content, self._model, self.go)
         elif screen in _SIDEBAR_SCREENS:
             self._dashboard.render(self._content, screen)
 

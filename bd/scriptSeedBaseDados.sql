@@ -164,8 +164,8 @@ INSERT INTO port_fees (id, id_port, name, price) VALUES
 -- CARGO_TYPE
 -- -----------------------------------------------------
 INSERT INTO cargo_type (id, name, need_container, description) VALUES
-(1, 'DRY CONTAINER', 1, 'Seca em contentor'),
-(2, 'REEFER', 1, 'Reefer (temperatura controlada)'),
+(1, 'Contentor seco', 1, 'Seca em contentor'),
+(2, 'Contentor refrigerado', 1, 'Reefer (temperatura controlada)'),
 (3, 'DANGEROUS CONTAINER', 1, 'ADR / IMDG em contentor'),
 (4, 'LIQUID BULK', 0, 'Líquido a granel (tanques)'),
 (5, 'DRY BULK', 0, 'Granel sólido'),

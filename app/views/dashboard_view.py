@@ -46,21 +46,21 @@ if TYPE_CHECKING:
 
 def _format_cargo_detail_right_panel(c: CargoRow) -> str:
     lines = [
-        f"Tipo (BD): {c.cargo_type_name}",
-        f"Nome: {c.cargo_name}",
-        f"Peso: {c.weight:.2f} t · Volume: {c.volume:.2f} m³",
-        f"Prioridade: {c.priority}",
-        f"IMDG: {c.imdg_class}",
-        f"Quantidade: {c.quantity:g} {c.unit}",
+        f"\nTipo (BD): {c.cargo_type_name}\n",
+        f"Nome: {c.cargo_name}\n",
+        f"Peso: {c.weight:.2f} t · Volume: {c.volume:.2f} m³\n",
+        f"Prioridade: {c.priority}\n",
+        f"IMDG: {c.imdg_class}\n",
+        f"Quantidade: {c.quantity:g} {c.unit}\n",
     ]
     if is_liquid_bulk(c):
-        lines.append("Estivagem: tanques (sem contentor)")
+        lines.append("Estivagem: tanques (sem contentor)\n")
     else:
-        lines.append("Estivagem: contentor")
+        lines.append("Estivagem: contentor\n")
         if c.temperature_required is not None:
-            lines.append(f"Temperatura alvo: {c.temperature_required:.1f} °C")
+            lines.append(f"Temperatura alvo: {c.temperature_required:.1f} °C\n")
         else:
-            lines.append("Temperatura: ambiente (sem controlo reefer)")
+            lines.append("Temperatura: ambiente (sem controlo reefer)\n")
     return "\n".join(lines)
 
 
@@ -374,6 +374,10 @@ class DashboardView:
         msg = "Preencha os campos obrigatórios antes de avançar:\n- " + "\n- ".join(missing_fields)
         messagebox.showwarning(title, msg)
 
+    def _warn_invalid_fields(self, title: str, invalid_fields: list[str]) -> None:
+        msg = "Existem campos com informação inválida:\n- " + "\n- ".join(invalid_fields)
+        messagebox.showwarning(title, msg)
+
     def _missing_screen4_fields(self) -> list[str]:
         missing: list[str] = []
         if self._model.cargo_load_error:
@@ -386,8 +390,9 @@ class DashboardView:
             missing.append("Selecione uma carga")
         return missing
 
-    def _missing_screen5_fields(self) -> list[str]:
+    def _screen5_field_issues(self) -> tuple[list[str], list[str]]:
         missing: list[str] = []
+        invalid: list[str] = []
         if not self._model.porto_carga_var.get().strip():
             missing.append("Porto de carga")
         if not self._model.porto_descarga_var.get().strip():
@@ -399,9 +404,9 @@ class DashboardView:
             try:
                 eta_date = datetime.strptime(eta_text, "%d/%m/%Y").date()
                 if eta_date <= date.today():
-                    missing.append("Prazo para entrega deve ser após a data atual")
+                    invalid.append("Prazo para entrega deve ser após a data atual")
             except ValueError:
-                missing.append("Prazo para entrega deve estar no formato DD/MM/AAAA")
+                invalid.append("Prazo para entrega deve estar no formato DD/MM/AAAA")
         if not self._model.estado_clima_var.get().strip():
             missing.append("Estádo do clima")
         fuel_text = self._model.custo_combustivel_litro_var.get().strip()
@@ -411,8 +416,8 @@ class DashboardView:
             try:
                 float(fuel_text.replace(",", "."))
             except ValueError:
-                missing.append("Custo de combustivel por Litro deve ser um número decimal")
-        return missing
+                invalid.append("Custo de combustivel por Litro deve ser um número decimal")
+        return missing, invalid
 
     def _missing_screen6_fields(self) -> list[str]:
         filtered_routes = self._model.filtered_routes_for_selected_ports()
@@ -436,9 +441,12 @@ class DashboardView:
                 self._warn_missing_fields("Screen 4", missing)
                 return
         if target in {"screen6", "screen7", "screen7b", "screen8", "screen9"}:
-            missing = self._missing_screen5_fields()
+            missing, invalid = self._screen5_field_issues()
             if missing:
                 self._warn_missing_fields("Screen 5", missing)
+                return
+            if invalid:
+                self._warn_invalid_fields("Screen 5", invalid)
                 return
         if target in {"screen7", "screen7b", "screen8", "screen9"}:
             missing = self._missing_screen6_fields()
@@ -460,9 +468,12 @@ class DashboardView:
         self._navigate("screen5")
 
     def _go_next_from_screen5(self) -> None:
-        missing = self._missing_screen5_fields()
+        missing, invalid = self._screen5_field_issues()
         if missing:
             self._warn_missing_fields("Screen 5", missing)
+            return
+        if invalid:
+            self._warn_invalid_fields("Screen 5", invalid)
             return
         self._navigate("screen6")
 
@@ -540,21 +551,32 @@ class DashboardView:
                 self._model.selected_cargo_id_var.set(lst[0].id)
             _rebuild_cargo_rows()
 
-        for tid in type_ids:
-            lbl = self._model.cargo_type_display_name(tid)
-            tk.Radiobutton(
-                left,
-                text=lbl,
-                variable=self._model.cargo_type_id_var,
-                value=tid,
-                bg=BG_CARD,
-                fg=TEXT_DARK,
-                selectcolor=BG_CARD,
-                activebackground=BG_CARD,
-                font=F_BODY,
-                indicatoron=True,
-                command=lambda t=tid: on_pick_type(t),
-            ).pack(anchor="w", pady=2)
+        type_options = [(self._model.cargo_type_display_name(tid), tid) for tid in type_ids]
+        type_labels = [label for label, _ in type_options]
+        type_label_to_id = {label: tid for label, tid in type_options}
+        selected_type_label_var = tk.StringVar()
+
+        selected_tid = self._model.cargo_type_id_var.get()
+        selected_type_label_var.set(
+            next((label for label, tid in type_options if tid == selected_tid), type_labels[0] if type_labels else "")
+        )
+
+        cargo_type_combo = ttk.Combobox(
+            left,
+            textvariable=selected_type_label_var,
+            values=type_labels,
+            state="readonly",
+            font=F_BODY,
+        )
+        cargo_type_combo.pack(fill="x", ipady=4, pady=(0, 4))
+
+        def _on_type_combo_selected(_event: tk.Event | None = None) -> None:
+            selected_label = selected_type_label_var.get()
+            selected_id = type_label_to_id.get(selected_label)
+            if selected_id is not None:
+                on_pick_type(selected_id)
+
+        cargo_type_combo.bind("<<ComboboxSelected>>", _on_type_combo_selected)
 
         tk.Label(left, text="Carga", bg=BG_CARD, fg=TEXT_WHITE, font=F_HEADING).pack(
             anchor="w", pady=(14, 6)
@@ -826,7 +848,14 @@ class DashboardView:
         for r in routes:
             is_sel = r.id == selected_id
             bg = BG_CARD_SEL if is_sel else BG_CARD
-            info = f"{r.ports_label}\n{r.distance_nm:.0f} nm\nFrequência: {r.frequency_days} dias"
+            info = (
+                f"{r.ports_label}\n"
+                f"Distancia: {r.distance_nm:.0f} nm\n"
+                f"Frequência: {r.frequency_days} dias\n"
+                f"Calado máximo: {r.max_draft:.2f} m\n"
+                f"Profundidade do canal: {r.channel_depth:.2f} m\n"
+                f"Comprimento máximo do navio: {r.max_ship_length:.2f} m"
+            )
 
             card = tk.Frame(
                 inner,
@@ -1272,7 +1301,7 @@ class DashboardView:
         nav = tk.Frame(f, bg=BG_PANEL)
         nav.pack(fill="x", pady=(8, 0))
 
-        themed_btn(nav, "Finalizar  ✔", lambda: self._finalizar(parent), w=140).pack(side="right", pady=2)
+        themed_btn(nav, "Finalizar  ✔", lambda: self._navigate("screen11"), w=140).pack(side="right", pady=2)
 
     def _draw_bay_view(self, parent: tk.Widget) -> None:
         canvas = tk.Canvas(parent, bg="#0d1a28", highlightthickness=0, height=160)
@@ -1304,26 +1333,6 @@ class DashboardView:
                     canvas.create_rectangle(x1, y1, x2, y2, fill=colors[idx], outline="#1a2f45", width=1)
 
         canvas.bind("<Configure>", draw)
-
-    def _finalizar(self, parent: tk.Widget) -> None:
-        root = parent.winfo_toplevel()
-        win = tk.Toplevel(root)
-        win.title("Concluído")
-        win.geometry("320x160")
-        win.configure(bg=BG_DARK)
-        win.grab_set()
-
-        tk.Label(win, text="✔", bg=BG_DARK, fg="#30c070", font=("Helvetica", 36)).pack(pady=(20, 4))
-        tk.Label(
-            win,
-            text="Plano de estiva finalizado com sucesso!",
-            bg=BG_DARK,
-            fg=TEXT_WHITE,
-            font=F_BODY,
-            wraplength=280,
-        ).pack()
-
-        themed_btn(win, "OK", win.destroy, w=80).pack(pady=12)
 
     def _screen_screen9(self, parent: tk.Widget) -> None:
         f = themed_panel(parent, "Plano de Estiva – Edição")
@@ -1403,7 +1412,7 @@ class DashboardView:
         nav = tk.Frame(f, bg=BG_PANEL)
         nav.pack(fill="x", pady=(8, 0))
 
-        themed_btn(nav, "Finalizar  ✔", lambda: self._finalizar(parent), w=140).pack(side="right", pady=2)
+        themed_btn(nav, "Finalizar  ✔", lambda: self._navigate("screen11"), w=140).pack(side="right", pady=2)
 
     def _draw_ship_topview(self, parent: tk.Widget) -> None:
         canvas = tk.Canvas(parent, bg="#071525", highlightthickness=0)

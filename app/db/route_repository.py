@@ -14,6 +14,9 @@ class RouteRow:
     distance_nm: float
     frequency_days: int
     ports_label: str
+    max_draft: float
+    channel_depth: float
+    max_ship_length: float
 
 
 @dataclass(frozen=True)
@@ -51,7 +54,10 @@ def fetch_routes() -> Tuple[List[RouteRow], str | None]:
             r.name,
             r.distance_nm,
             r.frequency_days,
-            GROUP_CONCAT(p.name ORDER BY rp.port_order SEPARATOR ' → ') AS ports
+            GROUP_CONCAT(p.name ORDER BY rp.port_order SEPARATOR ' → ') AS ports,
+            MIN(p.max_draft) AS max_draft,
+            MIN(p.channel_depth) AS channel_depth,
+            MIN(p.max_ship_length) AS max_ship_length
         FROM route r
         LEFT JOIN route_port rp ON rp.id_route = r.id
         LEFT JOIN port p ON p.id = rp.id_port
@@ -63,7 +69,7 @@ def fetch_routes() -> Tuple[List[RouteRow], str | None]:
         cur = conn.cursor()
         cur.execute(sql)
         rows: List[RouteRow] = []
-        for rid, name, dist, freq, ports in cur.fetchall():
+        for rid, name, dist, freq, ports, min_draft, min_channel_depth, min_ship_length in cur.fetchall():
             pl = (ports or "").strip() or "(sem portos definidos)"
             rows.append(
                 RouteRow(
@@ -72,6 +78,9 @@ def fetch_routes() -> Tuple[List[RouteRow], str | None]:
                     distance_nm=float(dist),
                     frequency_days=int(freq),
                     ports_label=pl,
+                    max_draft=float(min_draft or 0.0),
+                    channel_depth=float(min_channel_depth or 0.0),
+                    max_ship_length=float(min_ship_length or 0.0),
                 )
             )
         return rows, None

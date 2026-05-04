@@ -90,7 +90,25 @@ class SimulatorModel:
         r = self.get_selected_route()
         if not r:
             return "Nenhuma rota disponível."
-        return f"{r.name}\n{r.ports_label}\n{r.distance_nm:.0f} nm\nFrequência: {r.frequency_days} dias"
+        waypoints = self.waypoints_for_route(r.id)
+        if waypoints:
+            port_names = [wp.name.strip() for wp in waypoints if wp.name.strip()]
+        else:
+            port_names = [p.strip() for p in r.ports_label.split("→") if p.strip()]
+
+        numbered_ports = "\n".join(f"{idx} - {name}" for idx, name in enumerate(port_names, start=1))
+        if not numbered_ports:
+            numbered_ports = "—"
+
+        return (
+            f"{r.name}\n"
+            f"{numbered_ports}\n"
+            f"Distancia: {r.distance_nm:.0f} nm\n"
+            f"Frequência: {r.frequency_days} dias\n"
+            f"Calado máximo: {r.max_draft:.2f} m\n"
+            f"Profundidade do canal: {r.channel_depth:.2f} m\n"
+            f"Comprimento máximo do navio: {r.max_ship_length:.2f} m"
+        )
 
     def selected_route_one_line(self) -> str:
         r = self.get_selected_route()

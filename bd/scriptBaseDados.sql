@@ -1,4 +1,3 @@
-/* Categoria operacional: perfil de estivagem (contentor vs tanque, família de produto). */
 CREATE TABLE cargo_type (
     id BIGINT NOT NULL,
     name VARCHAR(120) NOT NULL,
@@ -53,6 +52,7 @@ CREATE TABLE container (
 CREATE TABLE ship_type (
     id BIGINT NOT NULL,
     name VARCHAR(80) NOT NULL,
+    description VARCHAR(300),
     PRIMARY KEY (id)
 );
 
@@ -134,7 +134,6 @@ CREATE TABLE sailing (
     id_weather_condition BIGINT NOT NULL,
     fuel_price_per_ton DECIMAL(8,2) NOT NULL,
     estimated_arrival_time DATETIME NOT NULL,
-    /* Água exterior para hidrostática nesta viagem (sobrepor default do navio na aplicação, se quiseres) */
     water_density_kg_m3 DECIMAL(8,2) NOT NULL DEFAULT 1025.00,
     PRIMARY KEY (id),
     FOREIGN KEY (id_ship) REFERENCES ship(id),
@@ -229,10 +228,6 @@ CREATE TABLE tank_fill_curve (
     FOREIGN KEY (id_tank) REFERENCES tank(id) ON DELETE CASCADE
 );
 
-/*
- * Por volume no tanque: CG da massa líquida e FSM (t·m) para GM corrigido.
- * Se liquid_* NULL, usar tank.lcv/vcv/tcv na aplicação.
- */
 CREATE TABLE tank_stability_curve (
     id BIGINT NOT NULL,
     id_tank BIGINT NOT NULL,

@@ -11,6 +11,7 @@ from app.views.screen1_view import mount_screen1
 from app.views.screen2_view import mount_screen2
 from app.views.screen3_view import mount_screen3
 from app.views.screen10_view import mount_screen10
+from app.views.screen11_view import mount_screen11
 from app.views.ui_widgets import themed_btn
 
 _SIDEBAR_SCREENS = frozenset({"screen4", "screen5", "screen6", "screen7", "screen7b", "screen8", "screen9"})
@@ -125,6 +126,8 @@ class MainController:
             )
         elif screen == "screen10":
             mount_screen10(self._content, self._model, self.go)
+        elif screen == "screen11":
+            mount_screen11(self._content, self._model, self.go)
         elif screen in _SIDEBAR_SCREENS:
             self._dashboard.render(self._content, screen)
 
